@@ -73,8 +73,8 @@ fi
 
 if [ "$MODE" = "install" ]; then
     adb -s "$DEVICE" install -r build/klikdash.apk
-    adb -s "$DEVICE" shell pm grant id.kokpit android.permission.ACCESS_FINE_LOCATION
-    adb -s "$DEVICE" shell pm grant id.kokpit android.permission.ACCESS_COARSE_LOCATION
-    adb -s "$DEVICE" shell cmd package set-home-activity id.kokpit/.HomeActivity
+    adb -s "$DEVICE" shell pm grant com.klikdash.app android.permission.ACCESS_FINE_LOCATION
+    adb -s "$DEVICE" shell pm grant com.klikdash.app android.permission.ACCESS_COARSE_LOCATION
+    adb -s "$DEVICE" shell cmd package set-home-activity com.klikdash.app/.HomeActivity
     adb -s "$DEVICE" shell am start -a android.intent.action.MAIN -c android.intent.category.HOME
 fi

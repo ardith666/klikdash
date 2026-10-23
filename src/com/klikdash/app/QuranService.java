@@ -1,4 +1,4 @@
-package id.kokpit;
+package com.klikdash.app;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -40,9 +40,9 @@ import java.util.concurrent.Executors;
 public class QuranService extends Service
         implements MediaPlayer.OnCompletionListener, AudioManager.OnAudioFocusChangeListener {
 
-    static final String ACTION_PLAY = "id.kokpit.quran.PLAY", ACTION_TOGGLE = "id.kokpit.quran.TOGGLE",
-            ACTION_NEXT = "id.kokpit.quran.NEXT", ACTION_PREV = "id.kokpit.quran.PREV",
-            ACTION_STOP = "id.kokpit.quran.STOP", ACTION_DOWNLOAD = "id.kokpit.quran.DOWNLOAD";
+    static final String ACTION_PLAY = "com.klikdash.app.quran.PLAY", ACTION_TOGGLE = "com.klikdash.app.quran.TOGGLE",
+            ACTION_NEXT = "com.klikdash.app.quran.NEXT", ACTION_PREV = "com.klikdash.app.quran.PREV",
+            ACTION_STOP = "com.klikdash.app.quran.STOP", ACTION_DOWNLOAD = "com.klikdash.app.quran.DOWNLOAD";
 
     /** LANJUT: terus ke surah berikutnya; SURAH/AYAT: ulangi. */
     static final int MODE_CONTINUE = 0, MODE_REPEAT_SURAH = 1, MODE_REPEAT_AYAH = 2;
@@ -137,7 +137,7 @@ public class QuranService extends Service
                 .setOnAudioFocusChangeListener(this)
                 .build();
 
-        session = new MediaSession(this, "kokpit-quran");
+        session = new MediaSession(this, "klikdash-quran");
         session.setCallback(new MediaSession.Callback() {
             @Override public void onPlay() { resume(); }
             @Override public void onPause() { pause(); }

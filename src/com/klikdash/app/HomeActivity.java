@@ -1,4 +1,4 @@
-package id.kokpit;
+package com.klikdash.app;
 
 import android.app.Activity;
 import android.content.BroadcastReceiver;
@@ -75,7 +75,7 @@ public class HomeActivity extends Activity {
             {"com.nwd.radio/.home_horizontalActivity", "RADIO"},
             {"com.nwd.android.phone/.home_horizontalActivity", "TELEPON"},
             {"com.nwd.android.video.ui/.home_horizontalActivity", "VIDEO"},
-            {"id.kokpit/.QuranActivity", "AL-QUR'AN"},
+            {"com.klikdash.app/.QuranActivity", "AL-QUR'AN"},
             {"com.nwd.carkit360camera/.home_horizontalActivity", "KAMERA 360"},
             {"com.android.car.setting/.home_horizontalActivity", "PENGATURAN"},
             {null, null}, // slot bebas: ketuk untuk memilih aplikasi
@@ -248,7 +248,6 @@ public class HomeActivity extends Activity {
         applyLocationExtras(getIntent());
         updateTime();
         startLocation();
-        prefs.edit().remove("boot").remove("bootId").apply(); // sisa versi sebelumnya
         Tweaks.applyAsync();
     }
 
@@ -319,8 +318,8 @@ public class HomeActivity extends Activity {
     /** Prefs di penyimpanan DE; pindahkan sekali dari CE (versi lama) begitu CE sudah terbuka. */
     SharedPreferences openPrefs() {
         Context de = createDeviceProtectedStorageContext();
-        if (getSystemService(UserManager.class).isUserUnlocked()) de.moveSharedPreferencesFrom(this, "kokpit");
-        return de.getSharedPreferences("kokpit", MODE_PRIVATE);
+        if (getSystemService(UserManager.class).isUserUnlocked()) de.moveSharedPreferencesFrom(this, "klikdash");
+        return de.getSharedPreferences("klikdash", MODE_PRIVATE);
     }
 
     /** Setelah CE terbuka: aplikasi non-directBoot (mis. Maps, Al-Qur'an) baru terlihat oleh PackageManager. */
@@ -443,7 +442,7 @@ public class HomeActivity extends Activity {
         updateTime();
     }
 
-    /** Set lokasi manual lewat adb: am start -n id.kokpit/.HomeActivity --es lat -6.1754 --es lon 106.8272 --es city Jakarta */
+    /** Set lokasi manual lewat adb: am start -n com.klikdash.app/.HomeActivity --es lat -6.1754 --es lon 106.8272 --es city Jakarta */
     void applyLocationExtras(Intent i) {
         Bundle x = i != null ? i.getExtras() : null;
         if (x == null || !x.containsKey("lat") || !x.containsKey("lon")) return;

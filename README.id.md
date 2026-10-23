@@ -41,8 +41,6 @@ Launcher ringan untuk headunit Android mobil **K2401** (Allwinner sun50iw10, And
 Menggantikan launcher bawaan NWD yang terus merender animasi 3D (~40% CPU) dengan home statis bergaya
 panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa library, dan di-build tanpa Gradle.
 
-> ID aplikasinya tetap `id.kokpit` (nama lama proyek). Mengganti ID berarti Android menganggapnya aplikasi
-> baru, sehingga data dan audio murattal di folder aplikasi ikut hilang.
 
 ## Fitur
 
@@ -99,8 +97,8 @@ buka issue dengan menyebut model, ukuran layar, dan versi Android.
 3. Jadikan home: tekan Home lalu pilih **KlikDash** › *Selalu*. Firmware NWD memaksa launcher bawaannya,
    jadi di headunit NWD jalankan juga (sekali, lewat ADB):
    ```bash
-   adb shell setprop persist.nwd.launcher.default id.kokpit
-   adb shell cmd package set-home-activity id.kokpit/.HomeActivity
+   adb shell setprop persist.nwd.launcher.default com.klikdash.app
+   adb shell cmd package set-home-activity com.klikdash.app/.HomeActivity
    ```
 4. Izinkan akses lokasi saat diminta (untuk jadwal sholat).
 5. Saat ada internet, buka **Al-Qur'an** sekali dan ketuk **UNDUH TEKS** untuk mengunduh teksnya.
@@ -113,7 +111,7 @@ klikdash/
 ├── AndroidManifest.xml
 ├── build.sh                  build + pasang ke headunit
 ├── klikdash.keystore         kunci tanda tangan APK (jangan hilang, lihat Catatan)
-├── src/id/kokpit/
+├── src/com/klikdash/app/
 │   ├── HomeActivity.java     launcher: ubin, jam, sholat, suhu, drag & drop
 │   ├── PrayerTimes.java      perhitungan jadwal sholat (algoritma praytimes.org)
 │   ├── QuranActivity.java    tampilan mushaf + pemutar
@@ -165,7 +163,7 @@ sampai `set-home-activity` dijalankan ulang.
 
 Aplikasi mengunduh audionya sendiri (lihat Fitur). Untuk mengisi ke-114 surah sekaligus (1,6 GB) tanpa
 memakai koneksi headunit, unduh di komputer lalu kirim lewat ADB. Lokasi filenya:
-`/sdcard/Android/data/id.kokpit/files/quran/audio/SSSAAA.mp3`.
+`/sdcard/Android/data/com.klikdash.app/files/quran/audio/SSSAAA.mp3`.
 
 ```bash
 # unduh (sekali)
@@ -176,7 +174,7 @@ for z in zips/*.zip; do unzip -qq -o -j "$z" '*.mp3' -d audio; done
 mkdir -p intro && mv audio/*000.mp3 intro/
 
 # kirim ke headunit (~20 menit lewat WiFi)
-adb push audio /sdcard/Android/data/id.kokpit/files/quran/
+adb push audio /sdcard/Android/data/com.klikdash.app/files/quran/
 ```
 
 Basmalah sebelum ayat 1 (kecuali Al-Fatihah dan At-Taubah) memakai `001001.mp3`.
@@ -208,7 +206,7 @@ Skrip ini juga membersihkan teks:
 
 | Perubahan | Cara mengembalikan |
 |---|---|
-| Launcher default `persist.nwd.launcher.default=id.kokpit` | `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
+| Launcher default `persist.nwd.launcher.default=com.klikdash.app` | `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
 | Preferensi HOME ke KlikDash | `adb shell cmd package set-home-activity com.android.launcher/com.android.launcher2.Launcher` |
 | TikTok di-uninstall | Pasang ulang dari Play Store |
 | YouTube dilarang jalan di latar | `adb shell cmd appops set com.google.android.youtube RUN_ANY_IN_BACKGROUND allow` (juga `RUN_IN_BACKGROUND`) |
@@ -240,7 +238,7 @@ Launcher NWD lama **tidak dihapus**. Prosesnya tetap ada karena juga menangani i
 - **Nama kota tidak terdeteksi otomatis**, karena geocoder di perangkat ini tidak mengembalikan hasil.
   Nama kota bisa diisi manual dan tetap dipakai selama posisi masih dalam radius 15 km:
   ```bash
-  adb shell am start -n id.kokpit/.HomeActivity --es lat -6.1754 --es lon 106.8272 --es city "Jakarta"
+  adb shell am start -n com.klikdash.app/.HomeActivity --es lat -6.1754 --es lon 106.8272 --es city "Jakarta"
   ```
 - **Akurasi jadwal sholat** ±1 menit dibanding jadwal Kemenag (sudah dibandingkan untuk Jakarta,
   26 Oktober 2026).

@@ -1,4 +1,4 @@
-package id.kokpit;
+package com.klikdash.app;
 
 import java.io.BufferedReader;
 import java.io.DataInputStream;
@@ -69,7 +69,7 @@ final class Tweaks {
             DataInputStream in = new DataInputStream(s.getInputStream());
             OutputStream out = s.getOutputStream();
 
-            send(out, CNXN, 0x01000000, 4096, "host::kokpit\0");
+            send(out, CNXN, 0x01000000, 4096, "host::klikdash\0");
             if (recv(in)[0] != CNXN) throw new IOException("adbd meminta autentikasi");
 
             send(out, OPEN, 1, 0, "shell:" + cmd + "\0");

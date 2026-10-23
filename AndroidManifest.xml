@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="id.kokpit">
+    package="com.klikdash.app">
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -36,7 +36,7 @@
             android:name=".QuranActivity"
             android:label="Al-Qur'an"
             android:icon="@drawable/ic_quran"
-            android:taskAffinity="id.kokpit.quran"
+            android:taskAffinity="com.klikdash.app.quran"
             android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|locale|layoutDirection|fontScale">
             <intent-filter>
