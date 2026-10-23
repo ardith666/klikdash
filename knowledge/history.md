@@ -12,3 +12,11 @@
   - Decision: implement
   - Reason: beda branch `android-7` harus mencolok; video diputar langsung di README
   - Next: verifikasi player inline di GitHub; hapus komentar commit sementara
+- [2026-10-23 17:25] GPS HAL fix + keyboard/GMS headunit:
+  - Code/Config: `/system/etc/zsgps.conf` → `SystemNavMode = 2`; uninstall update Gboard; `pm enable com.google.android.gms com.google.android.gsf`
+  - Status: ✅ GPS fix `acc=2`, update ±1 dtk (`nwdapp_GpsSpeedParser`, `GPSMonitorService`); keyboard system 5.1.18 jadi default; GMS/GSF enabled; Play Store/Maps/YouTube tetap disabled
+  - Decision: GPS-only untuk dapat DOP/accuracy; Gboard system yang ringan; GMS hanya untuk CarLink Nearby
+  - Reason: `LocationManagerService: Dropping incomplete location` karena `acc=???` walau `satellites=9`; Gboard 76 MB memicu warning GMS; wireless CarLink butuh GMS Nearby
+  - Reboot: 2× (config GPS HAL dibaca saat boot; ADB TCP 5555 persist)
+  - Note: CarLink freeze = BT binder `getBondedDevices()`; BT off turunkan 3.600 ms → ~100–150 ms; `removeBond()` vendor balik `false`
+  - Next: tes widget jadwal sholat + speed saat kendaraan bergerak; pantau beban GMS; unpair BC03 belum selesai
