@@ -231,9 +231,21 @@ Launcher NWD lama **tidak dihapus**. Prosesnya tetap ada karena juga menangani i
 **Gunakan dengan risiko sendiri.** Perangkat lunak ini diberikan "apa adanya", tanpa jaminan apa pun
 (lihat [LICENSE](LICENSE)).
 
+> ⚠️ **Uji dulu sebelum berkendara.** Setelah memasang KlikDash, dalam keadaan mobil diam, pastikan semua ini masih berfungsi:
+> - **Kamera mundur:** masuk gigi R, gambar kamera harus langsung muncul.
+> - **Kamera 360** (jika ada).
+> - **Peringatan pintu terbuka dan info mobil** dari CAN.
+> - **Tombol setir:** volume, lagu berikutnya, dan telepon.
+> - **Radio, Bluetooth, dan telepon.**
+>
+> Kalau ada yang tidak jalan, **kembalikan ke launcher bawaan** (lihat
+> [Perubahan pada headunit](#perubahan-pada-headunit)) dan laporkan lewat issue. Jangan berkendara dengan kamera
+> mundur yang tidak berfungsi. Sebagian firmware menampilkan kamera mundur atau peringatan pintu lewat launcher
+> bawaan, jadi hasilnya bisa berbeda di tiap headunit.
+
 - Mengganti launcher default dan pengaturan sistem tidak didukung produsen headunit dan bisa berpengaruh
   pada garansi. Semua perubahan bisa dikembalikan (lihat [Perubahan pada headunit](#perubahan-pada-headunit)).
-- Jangan mengoperasikan layar sambil menyetir. Pakai tombol setir, atau berhenti dengan aman dulu.
+- **Jangan mengoperasikan layar sambil menyetir.** Pakai tombol setir, atau berhenti dengan aman dulu.
 - Jadwal sholat adalah hasil hitungan dan bisa selisih sekitar satu menit dari jadwal resmi; ikuti masjid
   atau otoritas setempat.
 - Teks Al-Qur'an dan terjemahannya tidak disertakan; periksa teks yang Anda bangun terhadap mushaf resmi.

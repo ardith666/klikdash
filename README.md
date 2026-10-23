@@ -232,9 +232,21 @@ The old NWD launcher is **not removed**. Its process stays because it also handl
 
 **Use at your own risk.** This software is provided "as is", without warranty of any kind (see [LICENSE](LICENSE)).
 
+> ⚠️ **Test before you drive.** After installing KlikDash, with the car parked, check that all of these still work:
+> - **Reverse camera:** shift into R and the camera image must appear right away.
+> - **360° camera** (if fitted).
+> - **Door-open warnings and car info** from the CAN bus.
+> - **Steering-wheel buttons:** volume, next track and phone.
+> - **Radio, Bluetooth and phone calls.**
+>
+> If anything does not work, **switch back to the stock launcher** (see
+> [Changes made on the headunit](#changes-made-on-the-headunit)) and report it in an issue. Do not drive with a
+> reverse camera that is not working. Some firmware shows the reverse camera or door warnings through the stock
+> launcher, so this can differ from headunit to headunit.
+
 - Changing the default launcher and system settings is not supported by the headunit maker and may affect
   your warranty. Every change can be undone (see [Changes made on the headunit](#changes-made-on-the-headunit)).
-- Do not operate the screen while driving. Use the steering-wheel buttons or stop safely first.
+- **Do not operate the screen while driving.** Use the steering-wheel buttons, or stop safely first.
 - Prayer times are calculated and may differ by a minute or so from official schedules; follow your local
   mosque or authority.
 - The Quran text and translation are not included; check the text you build against an official mushaf.
