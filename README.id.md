@@ -130,6 +130,10 @@ buka issue dengan menyebut model, ukuran layar, dan versi Android.
 
 ## Pemasangan
 
+▶️ **[Video tutorial di YouTube](https://youtu.be/sSRKIyC3Ato)** (5 menit, dengan subtitle)
+
+[![Tutorial pemasangan KlikDash di YouTube](docs/img/video.png)](https://youtu.be/sSRKIyC3Ato)
+
 👉 **[Panduan pasang langkah demi langkah](docs/INSTALL.id.md)** (untuk pemula, dengan screenshot dan tanya jawab)
 
 1. Unduh `klikdash-<versi>.apk` dari [Releases](https://github.com/ashafizullah/klikdash/releases/latest).

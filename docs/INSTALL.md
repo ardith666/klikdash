@@ -9,6 +9,8 @@ phone's hotspot) during the first setup.
 >
 > The app's own interface is in Indonesian; the button names below are shown as they appear on screen.
 
+▶️ Prefer video? Watch the **[5-minute install tutorial on YouTube](https://youtu.be/sSRKIyC3Ato)** (Indonesian, with subtitles).
+
 ## What you need
 
 - An Android **10 or newer** headunit with a **1280×720** screen (made for the NWD K2401)

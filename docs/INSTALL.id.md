@@ -7,6 +7,8 @@ saat pertama kali memasang.
 
 > ⚠️ **Lakukan saat mobil diam.** Jangan mengoperasikan layar sambil menyetir.
 
+▶️ Lebih suka video? Tonton **[tutorial pemasangan 5 menit di YouTube](https://youtu.be/sSRKIyC3Ato)**.
+
 ## Yang dibutuhkan
 
 - Headunit Android **10 atau lebih baru** dengan layar **1280×720** (dibuat untuk NWD K2401)
