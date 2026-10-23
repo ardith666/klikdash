@@ -208,13 +208,14 @@ Skrip ini juga membersihkan teks:
 
 ## Perubahan pada headunit
 
-| Perubahan | Cara mengembalikan |
-|---|---|
-| Launcher default `persist.nwd.launcher.default=com.klikdash.app` | `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
-| Preferensi HOME ke KlikDash | `adb shell cmd package set-home-activity com.android.launcher/com.android.launcher2.Launcher` |
-| TikTok di-uninstall | Pasang ulang dari Play Store |
-| YouTube dilarang jalan di latar | `adb shell cmd appops set com.google.android.youtube RUN_ANY_IN_BACKGROUND allow` (juga `RUN_IN_BACKGROUND`) |
-| ksmd mati (oleh KlikDash, setiap boot) | Hapus `Tweaks.applyAsync()` di `HomeActivity`, lalu reboot |
+Semua yang diubah KlikDash, dan cara mengembalikannya. **KlikDash tidak menghapus atau mematikan aplikasi apa
+pun**; ia hanya mengganti tampilan home.
+
+| Perubahan | Kapan | Cara mengembalikan |
+|---|---|---|
+| Launcher default `persist.nwd.launcher.default=com.klikdash.app` (NWD) dan preferensi HOME | Saat Anda mengetuk **JADIKAN TAMPILAN UTAMA** | **LAUNCHER BAWAAN** di halaman Semua aplikasi, atau `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
+| ksmd dimatikan | Setiap boot, selama KlikDash jadi tampilan home (butuh ADB aktif) | Kembali ke launcher bawaan atau uninstall KlikDash, lalu reboot |
+| Zlink dikembalikan ke home bila terbuka sendiri | 3 menit pertama setelah boot atau bangun dari tidur | Sama seperti di atas |
 
 Launcher NWD lama **tidak dihapus**. Prosesnya tetap ada karena juga menangani info mobil dari CAN.
 

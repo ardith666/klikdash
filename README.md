@@ -208,13 +208,14 @@ The script also cleans the text:
 
 ## Changes made on the headunit
 
-| Change | How to undo it |
-|---|---|
-| Default launcher `persist.nwd.launcher.default=com.klikdash.app` | `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
-| HOME preference set to KlikDash | `adb shell cmd package set-home-activity com.android.launcher/com.android.launcher2.Launcher` |
-| TikTok uninstalled | Reinstall it from the Play Store |
-| YouTube blocked from running in the background | `adb shell cmd appops set com.google.android.youtube RUN_ANY_IN_BACKGROUND allow` (also `RUN_IN_BACKGROUND`) |
-| ksmd off (by KlikDash, every boot) | Remove `Tweaks.applyAsync()` from `HomeActivity`, then reboot |
+Everything KlikDash changes, and how to undo it. **KlikDash does not uninstall or disable any apps**; it only
+replaces the home screen.
+
+| Change | When | How to undo it |
+|---|---|---|
+| Default launcher `persist.nwd.launcher.default=com.klikdash.app` (NWD) and HOME preference | When you tap **JADIKAN TAMPILAN UTAMA** | **LAUNCHER BAWAAN** on the All apps page, or `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
+| ksmd turned off | Every boot, while KlikDash is the home screen (needs ADB on) | Switch back to the stock launcher or uninstall KlikDash, then reboot |
+| Zlink sent back to home when it opens by itself | First 3 minutes after boot or wake-up | Same as above |
 
 The old NWD launcher is **not removed**. Its process stays because it also handles car info from the CAN bus.
 
