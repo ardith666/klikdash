@@ -64,7 +64,7 @@ public class PowerActivity extends Activity {
     ListView list;
     Adapter adapter;
     TextView count, message;
-    boolean busy;
+    boolean busy, narrow;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -92,11 +92,14 @@ public class PowerActivity extends Activity {
         cl.leftMargin = px(20);
         head.addView(count, cl);
         head.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
-        Key reset = new Key("KEMBALIKAN SEMUA", false, this::restoreAll);
-        LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(px(230), px(56));
+        float wDp = getResources().getDisplayMetrics().widthPixels / dp;
+        narrow = wDp < 900;
+        Key reset = new Key(narrow ? "KEMBALIKAN" : "KEMBALIKAN SEMUA", false, this::restoreAll);
+        LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(WRAP, px(56));
         rl.rightMargin = px(12);
         head.addView(reset, rl);
-        head.addView(new Key("TUTUP  ✕", false, this::finish), new LinearLayout.LayoutParams(px(168), px(56)));
+        head.addView(new Key(narrow ? "✕" : "TUTUP  ✕", false, this::finish), new LinearLayout.LayoutParams(WRAP, px(56)));
+        if (narrow) count.setVisibility(View.GONE);
         root.addView(head, new LinearLayout.LayoutParams(MATCH, px(64)));
 
         TextView sub = text("Larang aplikasi berjalan diam-diam di latar supaya headunit lebih ringan dan dingin. "
@@ -279,6 +282,7 @@ public class PowerActivity extends Activity {
         Key(String label, boolean on, Runnable click) {
             super(PowerActivity.this);
             this.label = label;
+            setContentDescription(label); // pembaca layar & pengujian otomatis
             this.on = on;
             stroke.setStyle(Paint.Style.STROKE);
             stroke.setStrokeWidth(px(1));
@@ -294,6 +298,13 @@ public class PowerActivity extends Activity {
         @Override protected void drawableStateChanged() {
             super.drawableStateChanged();
             if (isPressed() != down) { down = isPressed(); invalidate(); }
+        }
+
+        /** Lebar mengikuti teks bila tidak ditentukan pasti (WRAP), supaya muat di layar sempit. */
+        @Override protected void onMeasure(int wSpec, int hSpec) {
+            if (MeasureSpec.getMode(wSpec) == MeasureSpec.EXACTLY) { super.onMeasure(wSpec, hSpec); return; }
+            setMeasuredDimension(resolveSize(Math.round(p.measureText(label)) + px(36), wSpec),
+                    resolveSize(px(48), hSpec));
         }
 
         @Override protected void onDraw(Canvas c) {
@@ -351,7 +362,7 @@ public class PowerActivity extends Activity {
             item.icon.setBounds(x, (h - icon) / 2, x + icon, (h + icon) / 2);
             item.icon.draw(c);
 
-            int sww = px(180), swh = px(48), swx = w - px(16) - sww, swy = (h - swh) / 2;
+            int sww = narrow ? px(130) : px(180), swh = px(48), swx = w - px(16) - sww, swy = (h - swh) / 2;
             fill.setColor(item.restricted ? AMBER : PANEL);
             c.drawRect(swx, swy, swx + sww, swy + swh, fill);
             if (!item.restricted) {

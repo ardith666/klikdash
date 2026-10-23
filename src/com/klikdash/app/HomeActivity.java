@@ -81,8 +81,13 @@ public class HomeActivity extends Activity {
             {null, null}, // slot bebas: ketuk untuk memilih aplikasi (Radio tetap ada di Semua)
     };
     static final int SLOTS = DEFAULTS.length;
-    /** Grid home: slot + ubin "Semua", 4 kolom. Baris pertama (navigasi & hiburan) bernomor amber. */
-    static final int COLS = 4, ROWS = (SLOTS + 1 + COLS - 1) / COLS;
+    /** Grid home: slot + ubin "Semua"; jumlah kolom dipilih dari ukuran layar (lihat measureScreen). */
+    int cols = 4, rows = 3;
+
+    // Ukuran layar dalam dp; tata letak dihitung dari sini, bukan ditulis mati untuk 1280×720.
+    float wDp, hDp;
+    boolean portrait;
+    int screenW, screenH; // Configuration.screenWidthDp/HeightDp saat dibangun, untuk deteksi rotasi
 
     static final Locale ID = new Locale("id", "ID");
 
@@ -169,6 +174,7 @@ public class HomeActivity extends Activity {
     GridView grid;
     AppAdapter adapter;
     int pickSlot = -1;
+    int drawerCols = 7;
 
     final BroadcastReceiver timeRx = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) { updateTime(); }
@@ -220,6 +226,7 @@ public class HomeActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(BG);
         root.setFitsSystemWindows(true);
+        measureScreen();
         home = buildHome();
         drawer = buildDrawer();
         drawer.setVisibility(View.GONE);
@@ -720,9 +727,38 @@ public class HomeActivity extends Activity {
 
     // ---------------------------------------------------------------- layout
 
+    void measureScreen() {
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        wDp = dm.widthPixels / dm.density;
+        hDp = dm.heightPixels / dm.density;
+        portrait = hDp > wDp;
+        screenW = getResources().getConfiguration().screenWidthDp;
+        screenH = getResources().getConfiguration().screenHeightDp;
+    }
+
+    /** Ukuran layar berubah (rotasi, layar lain): bangun ulang tata letak dari awal. */
+    @Override public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        if (c.screenWidthDp != screenW || c.screenHeightDp != screenH) recreate();
+    }
+
     View buildHome() {
+        // Landscape: panel jam di kiri (±34% lebar). Portrait: panel jam di atas, ubin di bawah.
+        float leftDp = portrait ? wDp - 48 : Math.max(260, Math.min(480, wDp * 0.34f));
+        float panelH = portrait ? hDp * 0.42f : hDp;
+        float gridW = portrait ? wDp - 48 : wDp - 48 - leftDp - 57;
+        cols = portrait || gridW < 600 ? 3 : 4;
+        rows = (SLOTS + 1 + cols - 1) / cols;
+        boolean shortPanel = panelH < 560; // tidak cukup tinggi untuk penggaris 24 jam
+        // Jam sebesar mungkin: muat di lebar panel (sisakan tempat kecepatan) dan sebanding tinggi layar.
+        Paint pm = new Paint();
+        pm.setTypeface(fHeavy);
+        pm.setTextSize(100 * dp);
+        float per100 = pm.measureText("00:00") / dp;
+        float clockSp = Math.max(56, Math.min(150, Math.min((leftDp - 110) / per100 * 100, panelH * 0.21f)));
+
         LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setOrientation(portrait ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         int pad = px(24);
         row.setPadding(pad, pad, pad, pad);
         row.setBackground(new CropMarks());
@@ -755,14 +791,14 @@ public class HomeActivity extends Activity {
         LinearLayout clockRow = new LinearLayout(this);
         clockRow.setOrientation(LinearLayout.HORIZONTAL);
         clockRow.setGravity(Gravity.BOTTOM);
-        clock = text("00:00", fHeavy, 150, TEXT);
+        clock = text("00:00", fHeavy, clockSp, TEXT);
         clock.setLetterSpacing(-0.01f);
         clockRow.addView(clock);
         clockRow.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
         LinearLayout speedBox = new LinearLayout(this);
         speedBox.setOrientation(LinearLayout.VERTICAL);
         speedBox.setGravity(Gravity.END);
-        speed = text("--", fHeavy, 64, TEXT);
+        speed = text("--", fHeavy, clockSp * 0.43f, TEXT);
         speedBox.addView(speed);
         TextView unit = text("KM/H", fMono, 10, DIM);
         unit.setLetterSpacing(0.25f);
@@ -784,7 +820,7 @@ public class HomeActivity extends Activity {
         day.setLetterSpacing(0.3f);
         left.addView(day);
 
-        date = text("", fMed, 36, TEXT);
+        date = text("", fMed, shortPanel ? 28 : 36, TEXT);
         date.setLetterSpacing(0.03f);
         LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(WRAP, WRAP);
         dl.topMargin = px(6);
@@ -804,24 +840,27 @@ public class HomeActivity extends Activity {
         LinearLayout.LayoutParams gl = new LinearLayout.LayoutParams(MATCH, px(56));
         gl.topMargin = px(18);
         left.addView(gauge, gl);
+        if (shortPanel) gauge.setVisibility(View.GONE);
 
-        row.addView(left, new LinearLayout.LayoutParams(px(420), MATCH));
+        row.addView(left, portrait ? new LinearLayout.LayoutParams(MATCH, px(panelH - 24))
+                : new LinearLayout.LayoutParams(px(leftDp), MATCH));
 
         View div = new View(this);
         div.setBackgroundColor(LINE);
-        LinearLayout.LayoutParams vl = new LinearLayout.LayoutParams(px(1), MATCH);
-        vl.leftMargin = px(28);
-        vl.rightMargin = px(28);
+        LinearLayout.LayoutParams vl = portrait ? new LinearLayout.LayoutParams(MATCH, px(1))
+                : new LinearLayout.LayoutParams(px(1), MATCH);
+        if (portrait) { vl.topMargin = px(20); vl.bottomMargin = px(20); }
+        else { vl.leftMargin = px(28); vl.rightMargin = px(28); }
         row.addView(div, vl);
 
         LinearLayout g = new LinearLayout(this);
         g.setOrientation(LinearLayout.VERTICAL);
         int gap = px(12);
-        for (int r = 0; r < ROWS; r++) {
+        for (int r = 0; r < rows; r++) {
             LinearLayout line = new LinearLayout(this);
             line.setOrientation(LinearLayout.HORIZONTAL);
-            for (int c = 0; c < COLS; c++) {
-                int idx = r * COLS + c;
+            for (int c = 0; c < cols; c++) {
+                int idx = r * cols + c;
                 if (idx > SLOTS) break;
                 Tile t = new Tile(idx);
                 tiles[idx] = t;
@@ -833,7 +872,7 @@ public class HomeActivity extends Activity {
             if (r > 0) rl.topMargin = gap;
             g.addView(line, rl);
         }
-        row.addView(g, new LinearLayout.LayoutParams(0, MATCH, 1f));
+        row.addView(g, portrait ? new LinearLayout.LayoutParams(MATCH, 0, 1f) : new LinearLayout.LayoutParams(0, MATCH, 1f));
         return row;
     }
 
@@ -848,31 +887,33 @@ public class HomeActivity extends Activity {
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
 
-        drawerTitle = text("SEMUA APLIKASI", fHeavy, 40, TEXT);
+        boolean narrow = wDp < 1000;
+        drawerTitle = text("SEMUA APLIKASI", fHeavy, narrow ? 30 : 40, TEXT);
         head.addView(drawerTitle);
         drawerCount = text("", fMono, 13, AMBER);
         drawerCount.setLetterSpacing(0.2f);
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(WRAP, WRAP);
         cl.leftMargin = px(20);
         head.addView(drawerCount, cl);
+        if (narrow) drawerCount.setVisibility(View.GONE);
         head.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
 
-        Button power = new Button("HEMAT DAYA", false);
+        Button power = new Button(wDp < 900 ? "HEMAT" : "HEMAT DAYA", false);
         power.setOnClickListener(v -> startActivity(new Intent(this, PowerActivity.class)));
-        LinearLayout.LayoutParams pwl = new LinearLayout.LayoutParams(px(190), px(56));
+        LinearLayout.LayoutParams pwl = new LinearLayout.LayoutParams(WRAP, px(56));
         pwl.rightMargin = px(12);
         head.addView(power, pwl);
 
-        restore = new Button("LAUNCHER BAWAAN", false);
+        restore = new Button(wDp < 900 ? "BAWAAN" : "LAUNCHER BAWAAN", false);
         restore.setOnClickListener(v -> restoreStockLauncher());
         restore.setVisibility(View.GONE);
-        LinearLayout.LayoutParams rsl = new LinearLayout.LayoutParams(px(230), px(56));
+        LinearLayout.LayoutParams rsl = new LinearLayout.LayoutParams(WRAP, px(56));
         rsl.rightMargin = px(12);
         head.addView(restore, rsl);
 
-        Button close = new Button("TUTUP  ✕", false);
+        Button close = new Button(wDp < 900 ? "✕" : "TUTUP  ✕", false);
         close.setOnClickListener(v -> closeDrawer());
-        head.addView(close, new LinearLayout.LayoutParams(px(168), px(56)));
+        head.addView(close, new LinearLayout.LayoutParams(WRAP, px(56)));
         d.addView(head, new LinearLayout.LayoutParams(MATCH, px(64)));
 
         View rule = new View(this);
@@ -882,7 +923,8 @@ public class HomeActivity extends Activity {
         d.addView(rule, rl);
 
         grid = new GridView(this);
-        grid.setNumColumns(7);
+        drawerCols = Math.max(3, Math.min(9, (int) ((wDp - 48) / 170)));
+        grid.setNumColumns(drawerCols);
         grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
         grid.setHorizontalSpacing(px(12));
         grid.setVerticalSpacing(px(12));
@@ -1076,17 +1118,19 @@ public class HomeActivity extends Activity {
         @Override protected void onDraw(Canvas c) {
             drawFrame(c);
             int w = getWidth(), h = getHeight();
-            int m = px(16);
+            float k = Math.max(0.55f, Math.min(1.25f, Math.min(w / (float) px(180), h / (float) px(190))));
+            int m = Math.round(px(16) * k);
+            small.setTextSize(sp(11) * Math.max(0.85f, Math.min(1.1f, k)));
             boolean all = idx == SLOTS;
             App a = all ? null : appFor(idx);
 
-            small.setColor(down ? INK : (idx < COLS ? AMBER : DIM));
-            c.drawText(String.format(Locale.US, "%02d", idx + 1), m, m + sp(11), small);
+            small.setColor(down ? INK : (idx < cols ? AMBER : DIM));
+            c.drawText(String.format(Locale.US, "%02d", idx + 1), m, m + small.getTextSize(), small);
 
-            int icon = px(60);
+            int icon = Math.round(px(60) * k);
             String name, sub = null;
             if (all) {
-                int cell = px(14), g = px(7), x0 = w - m - (cell * 3 + g * 2);
+                int cell = Math.round(px(14) * k), g = Math.round(px(7) * k), x0 = w - m - (cell * 3 + g * 2);
                 dot.setColor(down ? INK : TEXT);
                 for (int i = 0; i < 9; i++) {
                     int x = x0 + (i % 3) * (cell + g), y = m + (i / 3) * (cell + g);
@@ -1115,14 +1159,14 @@ public class HomeActivity extends Activity {
                 small.setColor(down ? INK : DIM);
                 CharSequence ss = TextUtils.ellipsize(sub, small, w - m * 2, TextUtils.TruncateAt.END);
                 c.drawText(ss, 0, ss.length(), m, base, small);
-                base -= sp(11) + px(10);
+                base -= small.getTextSize() + px(10) * k;
             }
             label.setColor(down ? INK : (a == null && !all ? FAINT : TEXT));
-            // Label panjang dikecilkan dulu (sampai 22sp), baru dipotong kalau masih tidak muat.
-            float avail = w - m * 2;
-            label.setTextSize(sp(30));
+            // Label panjang dikecilkan dulu (sampai 60%), baru dipotong kalau masih tidak muat.
+            float avail = w - m * 2, size = sp(30) * k;
+            label.setTextSize(size);
             float tw = label.measureText(name);
-            if (tw > avail) label.setTextSize(Math.max(sp(22), sp(30) * avail / tw));
+            if (tw > avail) label.setTextSize(Math.max(size * 0.6f, size * avail / tw * 0.97f));
             CharSequence s = TextUtils.ellipsize(name, label, avail, TextUtils.TruncateAt.END);
             c.drawText(s, 0, s.length(), m, base, label);
             drawDragState(c);
@@ -1137,12 +1181,19 @@ public class HomeActivity extends Activity {
 
         Button(String caption, boolean accent) {
             this.caption = caption;
+            setContentDescription(caption); // pembaca layar & pengujian otomatis
             this.accent = accent;
             p.setTypeface(fMonoBold);
             p.setTextSize(sp(13));
             p.setLetterSpacing(0.2f);
             p.setTextAlign(Paint.Align.CENTER);
             setClickable(true);
+        }
+
+        @Override protected void onMeasure(int wSpec, int hSpec) {
+            if (MeasureSpec.getMode(wSpec) == MeasureSpec.EXACTLY) { super.onMeasure(wSpec, hSpec); return; }
+            setMeasuredDimension(resolveSize(Math.round(p.measureText(caption)) + px(44), wSpec),
+                    resolveSize(px(48), hSpec));
         }
 
         @Override protected void onDraw(Canvas c) {
@@ -1172,8 +1223,8 @@ public class HomeActivity extends Activity {
         @Override protected void onDraw(Canvas c) {
             drawFrame(c);
             if (app == null) return;
-            int w = getWidth(), h = getHeight(), icon = px(64);
-            drawIcon(c, app.icon, (w - icon) / 2, px(22), icon, down);
+            int w = getWidth(), h = getHeight(), icon = Math.min(px(64), Math.round(h * 0.42f));
+            drawIcon(c, app.icon, (w - icon) / 2, Math.round(h * 0.15f), icon, down);
             label.setColor(down ? INK : TEXT);
             CharSequence s = TextUtils.ellipsize(app.label.toUpperCase(ID), label, w - px(20), TextUtils.TruncateAt.END);
             c.drawText(s, 0, s.length(), w / 2f, h - px(20), label);
@@ -1187,7 +1238,10 @@ public class HomeActivity extends Activity {
 
         @Override public View getView(int i, View v, ViewGroup parent) {
             Cell c = v instanceof Cell ? (Cell) v : new Cell();
-            if (v == null) c.setLayoutParams(new AbsListView.LayoutParams(MATCH, px(150)));
+            if (v == null) {
+                float colDp = (wDp - 48 - 12 * (drawerCols - 1)) / drawerCols;
+                c.setLayoutParams(new AbsListView.LayoutParams(MATCH, px(Math.max(110, Math.min(160, colDp * 0.85f)))));
+            }
             c.app = apps.get(i);
             c.invalidate();
             return c;
@@ -1308,6 +1362,9 @@ public class HomeActivity extends Activity {
 
             c.drawRect(0, 0, w, px(1), rule);
             float col = w / 5f;
+            // Panel sempit: kecilkan huruf supaya "MAGHRIB" dan "17:36" tidak bertumpuk dengan kolom sebelah.
+            name.setTextSize(Math.min(sp(10), col / 7.2f));
+            time.setTextSize(Math.min(sp(30), col * 0.4f));
             for (int i = 0; i < pray.length; i++) {
                 float x = i * col;
                 int color = i == next ? AMBER : pray[i] <= now ? DIM : TEXT;

@@ -215,9 +215,33 @@ public class DzikirActivity extends Activity {
 
     // ---------------------------------------------------------------- layout
 
+
+    // Ukuran layar dalam dp: daftar di kiri (landscape) atau di atas (portrait).
+    float wDp, hDp;
+    boolean portrait, narrow;
+    int screenW, screenH;
+
+    void measureScreen() {
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        wDp = dm.widthPixels / dm.density;
+        hDp = dm.heightPixels / dm.density;
+        portrait = hDp > wDp;
+        narrow = (wDp - (portrait ? 0 : listDp())) < 720;
+        screenW = getResources().getConfiguration().screenWidthDp;
+        screenH = getResources().getConfiguration().screenHeightDp;
+    }
+
+    float listDp() { return Math.max(220, Math.min(380, wDp * 0.27f)); }
+
+    @Override public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        if (c.screenWidthDp != screenW || c.screenHeightDp != screenH) recreate();
+    }
+
     View buildUi() {
+        measureScreen();
         LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setOrientation(portrait ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         row.setBackgroundColor(BG);
         row.setFitsSystemWindows(true);
 
@@ -253,8 +277,9 @@ public class DzikirActivity extends Activity {
         list.setAdapter(adapter);
         list.setOnItemClickListener((p, v, pos, id) -> show(pos));
         left.addView(list, new LinearLayout.LayoutParams(MATCH, 0, 1f));
-        row.addView(left, new LinearLayout.LayoutParams(px(340), MATCH));
-        row.addView(rule(), new LinearLayout.LayoutParams(px(1), MATCH));
+        row.addView(left, portrait ? new LinearLayout.LayoutParams(MATCH, px(hDp * 0.34f))
+                : new LinearLayout.LayoutParams(px(listDp()), MATCH));
+        row.addView(rule(), portrait ? new LinearLayout.LayoutParams(MATCH, px(1)) : new LinearLayout.LayoutParams(px(1), MATCH));
 
         // Kanan: teks bacaan dan penghitung
         LinearLayout right = new LinearLayout(this);
@@ -293,15 +318,17 @@ public class DzikirActivity extends Activity {
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setBackgroundColor(PANEL);
         bar.setPadding(px(20), px(12), px(20), px(12));
-        bar.addView(new Chip("‹  SEBELUMNYA", () -> show(cur - 1)), new LinearLayout.LayoutParams(px(190), px(72)));
+        bar.addView(new Chip(narrow ? "‹" : "‹  SEBELUMNYA", () -> show(cur - 1)),
+                new LinearLayout.LayoutParams(narrow ? px(72) : WRAP, px(72)));
         counter = new Counter();
         LinearLayout.LayoutParams kl = new LinearLayout.LayoutParams(0, px(72), 1f);
         kl.leftMargin = px(12);
         kl.rightMargin = px(12);
         bar.addView(counter, kl);
-        bar.addView(new Chip("BERIKUTNYA  ›", () -> show(cur + 1)), new LinearLayout.LayoutParams(px(190), px(72)));
+        bar.addView(new Chip(narrow ? "›" : "BERIKUTNYA  ›", () -> show(cur + 1)),
+                new LinearLayout.LayoutParams(narrow ? px(72) : WRAP, px(72)));
         right.addView(bar, new LinearLayout.LayoutParams(MATCH, px(96)));
-        row.addView(right, new LinearLayout.LayoutParams(0, MATCH, 1f));
+        row.addView(right, portrait ? new LinearLayout.LayoutParams(MATCH, 0, 1f) : new LinearLayout.LayoutParams(0, MATCH, 1f));
         return row;
     }
 
@@ -368,6 +395,7 @@ public class DzikirActivity extends Activity {
         Chip(String label, Runnable click) {
             super(DzikirActivity.this);
             this.label = label;
+            setContentDescription(label); // pembaca layar & pengujian otomatis
             stroke.setStyle(Paint.Style.STROKE);
             stroke.setStrokeWidth(px(1));
             stroke.setColor(LINE);
@@ -380,6 +408,13 @@ public class DzikirActivity extends Activity {
         }
 
         void setOn(boolean v) { on = v; invalidate(); }
+
+        /** Lebar mengikuti teks bila tidak ditentukan pasti (WRAP), supaya muat di layar sempit. */
+        @Override protected void onMeasure(int wSpec, int hSpec) {
+            if (MeasureSpec.getMode(wSpec) == MeasureSpec.EXACTLY) { super.onMeasure(wSpec, hSpec); return; }
+            setMeasuredDimension(resolveSize(Math.round(p.measureText(label)) + px(36), wSpec),
+                    resolveSize(px(48), hSpec));
+        }
 
         @Override protected void drawableStateChanged() {
             super.drawableStateChanged();
@@ -439,6 +474,7 @@ public class DzikirActivity extends Activity {
             String n = finished ? "SELESAI" : Math.min(counts[cur], it.count) + " / " + it.count;
             String hint = finished ? "ALHAMDULILLAH  ·  KETUK UNTUK MENGULANG"
                     : full ? "SELESAI  ·  KETUK UNTUK LANJUT" : "KETUK UNTUK MENGHITUNG";
+            if (small.measureText(hint) > w - px(16)) hint = finished ? "ALHAMDULILLAH" : full ? "LANJUT" : "KETUK";
             c.drawText(n, w / 2f, px(40), big);
             c.drawText(hint, w / 2f, px(60), small);
         }

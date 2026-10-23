@@ -182,9 +182,34 @@ public class QuranActivity extends Activity {
 
     // ---------------------------------------------------------------- layout
 
+
+    // Ukuran layar dalam dp: daftar di kiri (landscape) atau di atas (portrait); lebar dihitung, bukan ditulis mati.
+    float wDp, hDp;
+    boolean portrait, narrow;
+    int screenW, screenH;
+
+    void measureScreen() {
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        wDp = dm.widthPixels / dm.density;
+        hDp = dm.heightPixels / dm.density;
+        portrait = hDp > wDp;
+        float listDp = portrait ? 0 : Math.max(220, Math.min(380, wDp * 0.27f));
+        narrow = (wDp - listDp) < 720;
+        screenW = getResources().getConfiguration().screenWidthDp;
+        screenH = getResources().getConfiguration().screenHeightDp;
+    }
+
+    float listDp() { return Math.max(220, Math.min(380, wDp * 0.27f)); }
+
+    @Override public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        if (c.screenWidthDp != screenW || c.screenHeightDp != screenH) recreate();
+    }
+
     View buildUi() {
+        measureScreen();
         LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setOrientation(portrait ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
 
         // Kiri: daftar surah
         LinearLayout left = new LinearLayout(this);
@@ -205,8 +230,9 @@ public class QuranActivity extends Activity {
         surahList.setAdapter(surahAdapter);
         surahList.setOnItemClickListener((p, v, pos, id) -> open(pos + 1, 1));
         left.addView(surahList, new LinearLayout.LayoutParams(MATCH, 0, 1f));
-        row.addView(left, new LinearLayout.LayoutParams(px(340), MATCH));
-        row.addView(rule(), new LinearLayout.LayoutParams(px(1), MATCH));
+        row.addView(left, portrait ? new LinearLayout.LayoutParams(MATCH, px(hDp * 0.34f))
+                : new LinearLayout.LayoutParams(px(listDp()), MATCH));
+        row.addView(rule(), portrait ? new LinearLayout.LayoutParams(MATCH, px(1)) : new LinearLayout.LayoutParams(px(1), MATCH));
 
         // Kanan: kepala surah, ayat, pemutar
         LinearLayout right = new LinearLayout(this);
@@ -232,10 +258,11 @@ public class QuranActivity extends Activity {
         LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(WRAP, WRAP);
         al.rightMargin = px(20);
         hdr.addView(hArab, al);
+        if (narrow) hArab.setVisibility(View.GONE); // nama Arab tetap ada di daftar surah
         cDl = new Chip("UNDUH", () -> {
             if (have[surah] < QuranData.count(surah)) QuranService.download(this, surah);
         });
-        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(px(124), px(48));
+        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(WRAP, px(48));
         dl.rightMargin = px(10);
         hdr.addView(cDl, dl);
         cLatin = new Chip("LATIN", () -> {
@@ -245,7 +272,7 @@ public class QuranActivity extends Activity {
             ayahAdapter.notifyDataSetChanged();
         });
         cLatin.setOn(showLatin);
-        hdr.addView(cLatin, new LinearLayout.LayoutParams(px(96), px(48)));
+        hdr.addView(cLatin, new LinearLayout.LayoutParams(WRAP, px(48)));
         cIndo = new Chip("TERJEMAH", () -> {
             showIndo = !showIndo;
             prefs.edit().putBoolean("indo", showIndo).apply();
@@ -253,7 +280,7 @@ public class QuranActivity extends Activity {
             ayahAdapter.notifyDataSetChanged();
         });
         cIndo.setOn(showIndo);
-        LinearLayout.LayoutParams il = new LinearLayout.LayoutParams(px(124), px(48));
+        LinearLayout.LayoutParams il = new LinearLayout.LayoutParams(WRAP, px(48));
         il.leftMargin = px(10);
         hdr.addView(cIndo, il);
         right.addView(hdr);
@@ -266,7 +293,7 @@ public class QuranActivity extends Activity {
         right.addView(ayahList, new LinearLayout.LayoutParams(MATCH, 0, 1f));
 
         right.addView(buildPlayer(), new LinearLayout.LayoutParams(MATCH, px(92)));
-        row.addView(right, new LinearLayout.LayoutParams(0, MATCH, 1f));
+        row.addView(right, portrait ? new LinearLayout.LayoutParams(MATCH, 0, 1f) : new LinearLayout.LayoutParams(0, MATCH, 1f));
         return row;
     }
 
@@ -299,15 +326,16 @@ public class QuranActivity extends Activity {
         kPrev = new Key(Key.PREV, () -> QuranService.send(this, QuranService.ACTION_PREV));
         kPlay = new Key(Key.PLAY, this::togglePlay);
         kNext = new Key(Key.NEXT, () -> QuranService.send(this, QuranService.ACTION_NEXT));
-        bar.addView(kPrev, new LinearLayout.LayoutParams(px(76), px(64)));
-        LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(px(104), px(64));
+        int kw = narrow ? 60 : 76;
+        bar.addView(kPrev, new LinearLayout.LayoutParams(px(kw), px(64)));
+        LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(px(narrow ? 84 : 104), px(64));
         pl.leftMargin = px(8);
         pl.rightMargin = px(8);
         bar.addView(kPlay, pl);
-        bar.addView(kNext, new LinearLayout.LayoutParams(px(76), px(64)));
+        bar.addView(kNext, new LinearLayout.LayoutParams(px(kw), px(64)));
 
         cMode = new Chip("", () -> QuranService.setMode(this, (QuranService.mode + 1) % 3));
-        LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(px(150), px(64));
+        LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(WRAP, px(64));
         ml.leftMargin = px(16);
         bar.addView(cMode, ml);
         return bar;
@@ -498,9 +526,13 @@ public class QuranActivity extends Activity {
             num.setColor(down ? INK : sel ? AMBER : DIM);
             c.drawText(String.format(Locale.US, "%03d", no), px(24), px(42), num);
             float x = px(70);
-            arab.setColor(down ? INK : sel ? TEXT : DIM);
-            float aw = arab.measureText(q.arab);
-            c.drawText(q.arab, w - px(20), px(44), arab);
+            // Baris sempit: nama Arab disembunyikan supaya nama Latin tidak terpotong (tetap ada di kepala surah).
+            float aw = 0;
+            if (w >= px(280)) {
+                arab.setColor(down ? INK : sel ? TEXT : DIM);
+                aw = arab.measureText(q.arab);
+                c.drawText(q.arab, w - px(20), px(44), arab);
+            }
             name.setColor(ink);
             float avail = w - x - aw - px(36);
             CharSequence n = TextUtils.ellipsize(q.latin.toUpperCase(ID), name, avail, TextUtils.TruncateAt.END);
@@ -634,6 +666,7 @@ public class QuranActivity extends Activity {
         Chip(String label, Runnable click) {
             super(QuranActivity.this);
             this.label = label;
+            setContentDescription(label); // pembaca layar & pengujian otomatis
             stroke.setStyle(Paint.Style.STROKE);
             stroke.setStrokeWidth(px(1));
             p.setTypeface(fMonoBold);
@@ -646,7 +679,14 @@ public class QuranActivity extends Activity {
 
         void setOn(boolean v) { on = v; invalidate(); }
 
-        void setLabel(String s) { label = s; invalidate(); }
+        void setLabel(String s) { label = s; requestLayout(); invalidate(); }
+
+        /** Lebar mengikuti teks bila tidak ditentukan pasti (WRAP), supaya muat di layar sempit. */
+        @Override protected void onMeasure(int wSpec, int hSpec) {
+            if (MeasureSpec.getMode(wSpec) == MeasureSpec.EXACTLY) { super.onMeasure(wSpec, hSpec); return; }
+            setMeasuredDimension(resolveSize(Math.round(p.measureText(label)) + px(36), wSpec),
+                    resolveSize(px(48), hSpec));
+        }
 
         @Override protected void drawableStateChanged() {
             super.drawableStateChanged();
