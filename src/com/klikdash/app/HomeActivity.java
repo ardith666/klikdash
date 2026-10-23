@@ -265,6 +265,104 @@ public class HomeActivity extends Activity {
         prayerView.startTicking();
         temp.removeCallbacks(tempTick);
         tempTick.run();
+        refreshDefaultHome();
+    }
+
+    // ---------------------------------------------------------------- tampilan utama (launcher default)
+
+    /** Firmware NWD memilih launcher lewat property ini dan mengabaikan pilihan home Android. */
+    static final String NWD_PROP = "persist.nwd.launcher.default";
+
+    Button makeDefault, restore;
+
+    static String getprop(String key) {
+        try {
+            Process p = Runtime.getRuntime().exec(new String[]{"getprop", key});
+            try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
+                String s = r.readLine();
+                return s == null ? "" : s.trim();
+            }
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    boolean isNwd() {
+        return "true".equals(getprop("ro.nwd.start.launcher.by.fw")) || !getprop(NWD_PROP).isEmpty();
+    }
+
+    boolean isDefaultHome() {
+        if (isNwd()) return getPackageName().equals(getprop(NWD_PROP));
+        ResolveInfo r = getPackageManager().resolveActivity(
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY);
+        return r != null && r.activityInfo != null && getPackageName().equals(r.activityInfo.packageName);
+    }
+
+    void refreshDefaultHome() {
+        boolean def = isDefaultHome();
+        makeDefault.setVisibility(def ? View.GONE : View.VISIBLE);
+        restore.setVisibility(def ? View.VISIBLE : View.GONE);
+    }
+
+    /** NWD: atur property lewat ADB perangkat sendiri (tanpa komputer). Lainnya: buka pengaturan "Aplikasi home". */
+    void makeDefaultHome() {
+        if (!isNwd()) {
+            openHomeSettings();
+            return;
+        }
+        String cur = getprop(NWD_PROP), me = getPackageName();
+        if (!cur.isEmpty() && !cur.equals(me)) prefs.edit().putString("nwdPrev", cur).apply();
+        Tweaks.shellAsync("setprop " + NWD_PROP + " " + me + "; cmd package set-home-activity " + me + "/.HomeActivity",
+                ok -> runOnUiThread(() -> {
+                    refreshDefaultHome();
+                    Toast.makeText(this, isDefaultHome() ? "KlikDash sekarang tampilan utama"
+                            : "Belum berhasil. Aktifkan USB debugging di Opsi pengembang, lalu coba lagi.",
+                            Toast.LENGTH_LONG).show();
+                }));
+    }
+
+    void restoreStockLauncher() {
+        if (!isNwd()) {
+            openHomeSettings();
+            return;
+        }
+        new android.app.AlertDialog.Builder(this)
+                .setMessage("Kembali ke launcher bawaan? KlikDash tetap terpasang dan bisa dijadikan tampilan utama lagi "
+                        + "dari tombol di home-nya.")
+                .setNegativeButton("Batal", null)
+                .setPositiveButton("Kembali", (dlg, w) -> {
+                    String prev = prefs.getString("nwdPrev", "com.android.launcher");
+                    ComponentName stock = stockHome(prev);
+                    Tweaks.shellAsync("setprop " + NWD_PROP + " " + prev
+                                    + (stock != null ? "; cmd package set-home-activity " + stock.flattenToShortString() : "")
+                                    + "; input keyevent KEYCODE_HOME",
+                            ok -> {
+                                if (!ok) runOnUiThread(() -> Toast.makeText(this,
+                                        "Belum berhasil. Aktifkan USB debugging di Opsi pengembang, lalu coba lagi.",
+                                        Toast.LENGTH_LONG).show());
+                            });
+                })
+                .show();
+    }
+
+    /** Activity HOME bawaan: milik paket {@code pkg}, atau launcher lain selain KlikDash. */
+    ComponentName stockHome(String pkg) {
+        ComponentName other = null;
+        for (ResolveInfo r : getPackageManager().queryIntentActivities(
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)) {
+            ComponentName cn = new ComponentName(r.activityInfo.packageName, r.activityInfo.name);
+            if (cn.getPackageName().equals(pkg)) return cn;
+            if (other == null && !cn.getPackageName().equals(getPackageName())) other = cn;
+        }
+        return other;
+    }
+
+    void openHomeSettings() {
+        try {
+            startActivity(new Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (Exception e) {
+            startActivity(new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        }
     }
 
     @Override protected void onPause() {
@@ -543,13 +641,23 @@ public class HomeActivity extends Activity {
 
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.HORIZONTAL);
-        TextView tag = text("KLIKDASH  ·  K2401", fMono, 12, DIM);
+        // Model dari sistem (mis. "K2401/K2401P/k2401M" → K2401), bukan ditulis mati.
+        String model = android.os.Build.MODEL.split("[/ ]")[0].toUpperCase(Locale.US);
+        TextView tag = text("KLIKDASH  ·  " + model, fMono, 12, DIM);
         tag.setLetterSpacing(0.25f);
         top.addView(tag, new LinearLayout.LayoutParams(0, WRAP, 1f));
         temp = text("", fMonoBold, 12, DIM);
         temp.setLetterSpacing(0.15f);
         top.addView(temp);
         left.addView(top);
+
+        // Muncul hanya bila KlikDash belum jadi tampilan utama (lihat refreshDefaultHome).
+        makeDefault = new Button("JADIKAN TAMPILAN UTAMA", true);
+        makeDefault.setOnClickListener(v -> makeDefaultHome());
+        makeDefault.setVisibility(View.GONE);
+        LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(MATCH, px(48));
+        ml.topMargin = px(14);
+        left.addView(makeDefault, ml);
         left.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
 
         clock = text("00:00", fHeavy, 150, TEXT);
@@ -633,7 +741,14 @@ public class HomeActivity extends Activity {
         head.addView(drawerCount, cl);
         head.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
 
-        Button close = new Button("TUTUP  ✕");
+        restore = new Button("LAUNCHER BAWAAN", false);
+        restore.setOnClickListener(v -> restoreStockLauncher());
+        restore.setVisibility(View.GONE);
+        LinearLayout.LayoutParams rsl = new LinearLayout.LayoutParams(px(230), px(56));
+        rsl.rightMargin = px(12);
+        head.addView(restore, rsl);
+
+        Button close = new Button("TUTUP  ✕", false);
         close.setOnClickListener(v -> closeDrawer());
         head.addView(close, new LinearLayout.LayoutParams(px(168), px(56)));
         d.addView(head, new LinearLayout.LayoutParams(MATCH, px(64)));
@@ -891,10 +1006,13 @@ public class HomeActivity extends Activity {
 
     class Button extends Panel {
         final String caption;
+        /** accent: tombol amber (ajakan), selain itu panel biasa. */
+        final boolean accent;
         final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        Button(String caption) {
+        Button(String caption, boolean accent) {
             this.caption = caption;
+            this.accent = accent;
             p.setTypeface(fMonoBold);
             p.setTextSize(sp(13));
             p.setLetterSpacing(0.2f);
@@ -903,8 +1021,13 @@ public class HomeActivity extends Activity {
         }
 
         @Override protected void onDraw(Canvas c) {
-            drawFrame(c);
-            p.setColor(down ? INK : TEXT);
+            if (accent) {
+                fill.setColor(down ? TEXT : AMBER);
+                c.drawRect(0, 0, getWidth(), getHeight(), fill);
+            } else {
+                drawFrame(c);
+            }
+            p.setColor(down || accent ? INK : TEXT);
             Paint.FontMetrics fm = p.getFontMetrics();
             c.drawText(caption, getWidth() / 2f, getHeight() / 2f - (fm.ascent + fm.descent) / 2f, p);
         }

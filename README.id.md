@@ -91,11 +91,15 @@ buka issue dengan menyebut model, ukuran layar, dan versi Android.
 
 ## Pemasangan
 
+👉 **[Panduan pasang langkah demi langkah](docs/INSTALL.id.md)** (untuk pemula, dengan screenshot dan tanya jawab)
+
 1. Unduh `klikdash-<versi>.apk` dari [Releases](https://github.com/ashafizullah/klikdash/releases/latest).
 2. Pasang: salin ke flashdisk lalu buka dengan file manager headunit, atau jalankan
    `adb install klikdash-<versi>.apk`.
-3. Jadikan home: tekan Home lalu pilih **KlikDash** › *Selalu*. Firmware NWD memaksa launcher bawaannya,
-   jadi di headunit NWD jalankan juga (sekali, lewat ADB):
+3. Jadikan home: buka KlikDash lalu ketuk tombol kuning **JADIKAN TAMPILAN UTAMA**. Di firmware NWD,
+   tombol ini mengatur launcher sendiri (butuh USB debugging aktif); di headunit lain, tombol ini membuka
+   pengaturan *Aplikasi home default*. Tombol **LAUNCHER BAWAAN** di halaman Semua aplikasi mengembalikannya.
+   Cara manual lewat ADB:
    ```bash
    adb shell setprop persist.nwd.launcher.default com.klikdash.app
    adb shell cmd package set-home-activity com.klikdash.app/.HomeActivity

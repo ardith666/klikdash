@@ -10,6 +10,7 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Consumer;
 
 /**
  * Penyetelan sistem yang hilang tiap reboot (matikan ksmd) dan kembali ke home bila Zlink muncul sendiri.
@@ -29,9 +30,19 @@ final class Tweaks {
     private Tweaks() { }
 
     /** Sekali jalan di latar; gagal diam-diam (mis. adbd belum siap). */
-    static void shellAsync(String cmd) {
+    static void shellAsync(String cmd) { shellAsync(cmd, null); }
+
+    /** Seperti di atas; {@code done} menerima true bila perintah sampai ke ADB (dipanggil di thread latar). */
+    static void shellAsync(String cmd, Consumer<Boolean> done) {
         new Thread(() -> {
-            try { shell(cmd); } catch (IOException ignored) { }
+            boolean ok;
+            try {
+                shell(cmd);
+                ok = true;
+            } catch (IOException e) {
+                ok = false;
+            }
+            if (done != null) done.accept(ok);
         }, "tweaks-cmd").start();
     }
 

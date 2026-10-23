@@ -92,11 +92,14 @@ welcome: please open an issue with the model, screen size and Android version.
 
 ## Install
 
+👉 **[Step-by-step install guide](docs/INSTALL.md)** (written for beginners, with screenshots and FAQ)
+
 1. Download `klikdash-<version>.apk` from [Releases](https://github.com/ashafizullah/klikdash/releases/latest).
 2. Install it: copy it to a USB stick and open it with the headunit's file manager, or run
    `adb install klikdash-<version>.apk`.
-3. Make it the home app: press Home and pick **KlikDash** › *Always*. NWD firmware forces its own launcher,
-   so on NWD headunits also run (one time, over ADB):
+3. Make it the home app: open KlikDash and tap the yellow **JADIKAN TAMPILAN UTAMA** button. On NWD
+   firmware it sets the launcher itself (needs USB debugging on); elsewhere it opens the *Default home app*
+   setting. **LAUNCHER BAWAAN** on the All apps page switches back. Manual alternative over ADB:
    ```bash
    adb shell setprop persist.nwd.launcher.default com.klikdash.app
    adb shell cmd package set-home-activity com.klikdash.app/.HomeActivity
