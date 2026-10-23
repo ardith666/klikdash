@@ -2,14 +2,28 @@ package id.kokpit;
 
 import android.content.Context;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Teks Al-Qur'an offline dari assets/quran.txt (sumber: equran.id — mushaf standar Kemenag,
- * transliterasi & terjemahan Kemenag). Format baris, dipisah tab:
+ * Teks Al-Qur'an offline (sumber: equran.id — mushaf standar Kemenag, transliterasi & terjemahan Kemenag).
+ * APK rilis tidak membawa teks: saat pertama dibuka, teks diunduh sekali ke filesDir/quran.txt
+ * ({@link #download}). Build pengembang boleh menyertakan assets/quran.txt sebagai cadangan.
+ * Format baris, dipisah tab:
  *   S  nomor  namaLatin  namaArab  arti  tempatTurun  jumlahAyat
  *   A  surah  ayat  arab  latin  indonesia
  */
@@ -49,7 +63,7 @@ final class QuranData {
         String[] ar = new String[AYAH_TOTAL], la = new String[AYAH_TOTAL], id = new String[AYAH_TOTAL];
         int k = 0;
         try (BufferedReader r = new BufferedReader(
-                new InputStreamReader(c.getAssets().open("quran.txt"), StandardCharsets.UTF_8), 1 << 16)) {
+                new InputStreamReader(openText(c), StandardCharsets.UTF_8), 1 << 16)) {
             String line;
             while ((line = r.readLine()) != null) {
                 String[] f = line.split("\t", -1);
@@ -76,6 +90,100 @@ final class QuranData {
         indo = id;
         surah = ss;
     }
+
+    // ---------------------------------------------------------------- unduh teks
+
+    static final String API = "https://equran.id/api/v2/surat/";
+
+    interface Progress { void update(int done, int total); }
+
+    static File textFile(Context c) { return new File(c.getFilesDir(), "quran.txt"); }
+
+    /** Teks sudah ada: hasil unduhan, atau tertanam di APK (build pengembang). */
+    static boolean available(Context c) {
+        if (textFile(c).length() > 0) return true;
+        try (InputStream in = c.getAssets().open("quran.txt")) {
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private static InputStream openText(Context c) throws IOException {
+        File f = textFile(c);
+        return f.length() > 0 ? new FileInputStream(f) : c.getAssets().open("quran.txt");
+    }
+
+    /**
+     * Unduh 114 surah dari equran.id dan tulis quran.txt dengan pembersihan yang sama seperti
+     * tools/build_quran.py. Ditulis ke file sementara dulu, jadi unduhan yang gagal tidak merusak apa pun.
+     * Jalankan di thread latar.
+     */
+    static void download(Context c, Progress p) throws Exception {
+        File dst = textFile(c), tmp = new File(dst.getPath() + ".part");
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(tmp), StandardCharsets.UTF_8)) {
+            for (int n = 1; n <= SURAH_COUNT; n++) {
+                JSONObject d = new JSONObject(fetch(API + n)).getJSONObject("data");
+                JSONArray ayat = d.getJSONArray("ayat");
+                if (ayat.length() != COUNTS[n - 1]) throw new IOException("Jumlah ayat surah " + n + " tidak cocok");
+                w.write("S\t" + d.getInt("nomor") + "\t" + clean(d.getString("namaLatin")) + "\t"
+                        + clean(d.getString("nama")) + "\t" + clean(d.getString("arti")) + "\t"
+                        + clean(d.getString("tempatTurun")) + "\t" + d.getInt("jumlahAyat") + "\n");
+                for (int i = 0; i < ayat.length(); i++) {
+                    JSONObject a = ayat.getJSONObject(i);
+                    w.write("A\t" + n + "\t" + a.getInt("nomorAyat") + "\t" + arab(a.getString("teksArab")) + "\t"
+                            + clean(a.getString("teksLatin")) + "\t" + clean(a.getString("teksIndonesia")) + "\n");
+                }
+                p.update(n, SURAH_COUNT);
+            }
+        }
+        if (!tmp.renameTo(dst)) throw new IOException("Gagal menyimpan teks");
+    }
+
+    static String fetch(String url) throws IOException {
+        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+        c.setConnectTimeout(15000);
+        c.setReadTimeout(30000);
+        c.setRequestProperty("User-Agent", "KlikDash");
+        try {
+            if (c.getResponseCode() != 200) throw new IOException("HTTP " + c.getResponseCode());
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (InputStream in = c.getInputStream()) {
+                byte[] buf = new byte[16384];
+                for (int k; (k = in.read(buf)) > 0; ) out.write(buf, 0, k);
+            }
+            return new String(out.toByteArray(), StandardCharsets.UTF_8);
+        } finally {
+            c.disconnect();
+        }
+    }
+
+    /** Sama dengan clean() di tools/build_quran.py. */
+    static String clean(String s) {
+        s = s.replace('\t', ' ').replaceAll("[\\x00-\\x08\\x0b-\\x1f\\x7f-\\x9f]", "");
+        return strip(s.replaceAll(WS + "+", " "));
+    }
+
+    /**
+     * Sama dengan arab() di tools/build_quran.py: hapus penanda khas mushaf Kemenag yang tidak ada di font
+     * Amiri dan tidak dibaca (U+08D6 ruku', U+06D4 pemisah juz, U+06D5 tumpuan waqaf), lalu tempelkan tanda
+     * waqaf (U+06D6..U+06DC) ke kata sebelumnya.
+     */
+    static String arab(String s) {
+        s = clean(s).replaceAll("[\u08D6\u06D4\u06D5]", "");
+        s = s.replaceAll(WS + "+([\u06D6-\u06DC])", "$1");
+        return strip(s.replaceAll(WS + "+", " "));
+    }
+
+    /**
+     * Spasi menurut str.isspace() Python, ditulis eksplisit: \\s di Java desktop hanya ASCII, sedangkan regex
+     * ICU di Android tidak mendukung flag (?U). Dengan daftar ini hasilnya sama di keduanya dan di Python.
+     */
+    private static final String WS =
+            "[\\t\\n\\x0B\\f\\r\\x1C-\\x1F \\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]";
+
+    /** Seperti str.strip() Python, bukan String.trim(). */
+    private static String strip(String s) { return s.replaceAll("^" + WS + "+|" + WS + "+$", ""); }
 
     static Surah get(int s) { return surah[s - 1]; }
 

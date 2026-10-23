@@ -51,7 +51,9 @@ public class QuranActivity extends Activity {
     SurahAdapter surahAdapter;
     AyahAdapter ayahAdapter;
     TextView hNo, hTitle, hMeta, hArab, npTitle, npSub, loading;
-    Chip cLatin, cIndo, cMode;
+    Chip cLatin, cIndo, cMode, cDl;
+    /** Jumlah file audio tersimpan per surah (indeks 1..114), diperbarui tiap status pemutar berubah. */
+    int[] have = new int[QuranData.SURAH_COUNT + 1];
     Key kPrev, kPlay, kNext;
 
     final Runnable onService = this::refreshPlayer;
@@ -76,13 +78,47 @@ public class QuranActivity extends Activity {
         root.setBackgroundColor(BG);
         root.setFitsSystemWindows(true);
         root.addView(buildUi(), MATCH, MATCH);
-        loading = text("MEMUAT MUSHAF…", fMonoBold, 14, AMBER);
-        loading.setLetterSpacing(0.3f);
-        loading.setGravity(Gravity.CENTER);
-        loading.setBackgroundColor(BG);
-        root.addView(loading, MATCH, MATCH);
+        root.addView(buildOverlay(), MATCH, MATCH);
         setContentView(root);
 
+        if (QuranData.available(this)) loadText(); else askDownload();
+    }
+
+    // Layar pembuka: memuat teks, atau menawarkan unduh sekali bila APK tidak membawa teks.
+    LinearLayout overlay;
+    TextView loadSub;
+    Chip loadBtn;
+
+    View buildOverlay() {
+        overlay = new LinearLayout(this);
+        overlay.setOrientation(LinearLayout.VERTICAL);
+        overlay.setGravity(Gravity.CENTER);
+        overlay.setBackgroundColor(BG);
+        overlay.setClickable(true);
+        loading = text("", fMonoBold, 14, AMBER);
+        loading.setLetterSpacing(0.3f);
+        overlay.addView(loading, new LinearLayout.LayoutParams(WRAP, WRAP));
+        loadSub = text("", fSerif, 17, TRANSLATION);
+        loadSub.setSingleLine(false);
+        loadSub.setGravity(Gravity.CENTER);
+        loadSub.setMaxWidth(px(640));
+        loadSub.setLineSpacing(0, 1.3f);
+        LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(WRAP, WRAP);
+        sl.topMargin = px(16);
+        overlay.addView(loadSub, sl);
+        loadBtn = new Chip("UNDUH TEKS", this::downloadText);
+        loadBtn.setOn(true);
+        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(px(220), px(56));
+        bl.topMargin = px(28);
+        overlay.addView(loadBtn, bl);
+        return overlay;
+    }
+
+    void loadText() {
+        overlay.setVisibility(View.VISIBLE);
+        loading.setText("MEMUAT MUSHAF…");
+        loadSub.setVisibility(View.GONE);
+        loadBtn.setVisibility(View.GONE);
         new Thread(() -> {
             try {
                 QuranData.load(this);
@@ -93,8 +129,39 @@ public class QuranActivity extends Activity {
         }, "quran-load").start();
     }
 
+    void askDownload() {
+        loading.setText("TEKS AL-QUR'AN BELUM ADA");
+        loadSub.setText("Unduh sekali (±6 MB) dari equran.id: mushaf standar, Latin, dan terjemahan Kemenag. "
+                + "Setelah itu bisa dibaca offline. Audio murattal diunduh per surah saat diputar.");
+        loadSub.setVisibility(View.VISIBLE);
+        loadBtn.setLabel("UNDUH TEKS");
+        loadBtn.setVisibility(View.VISIBLE);
+    }
+
+    void downloadText() {
+        loadBtn.setVisibility(View.GONE);
+        loadSub.setVisibility(View.GONE);
+        loading.setText("MENGUNDUH MUSHAF  0 / 114");
+        new Thread(() -> {
+            try {
+                QuranData.download(this, (d, t) -> runOnUiThread(() ->
+                        loading.setText(String.format(Locale.US, "MENGUNDUH MUSHAF  %d / %d", d, t))));
+                runOnUiThread(this::loadText);
+            } catch (Exception e) {
+                android.util.Log.w("KlikDash", "Unduh teks Al-Qur'an gagal", e);
+                runOnUiThread(() -> {
+                    loading.setText("GAGAL MENGUNDUH");
+                    loadSub.setText("Periksa koneksi internet headunit, lalu coba lagi.");
+                    loadSub.setVisibility(View.VISIBLE);
+                    loadBtn.setLabel("COBA LAGI");
+                    loadBtn.setVisibility(View.VISIBLE);
+                });
+            }
+        }, "quran-download").start();
+    }
+
     void onLoaded() {
-        loading.setVisibility(View.GONE);
+        overlay.setVisibility(View.GONE);
         surahAdapter.notifyDataSetChanged();
         open(QuranService.surah, QuranService.ayah);
         surahList.setSelectionFromTop(Math.max(0, surah - 3), 0);
@@ -165,6 +232,12 @@ public class QuranActivity extends Activity {
         LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(WRAP, WRAP);
         al.rightMargin = px(20);
         hdr.addView(hArab, al);
+        cDl = new Chip("UNDUH", () -> {
+            if (have[surah] < QuranData.count(surah)) QuranService.download(this, surah);
+        });
+        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(px(124), px(48));
+        dl.rightMargin = px(10);
+        hdr.addView(cDl, dl);
         cLatin = new Chip("LATIN", () -> {
             showLatin = !showLatin;
             prefs.edit().putBoolean("latin", showLatin).apply();
@@ -265,6 +338,21 @@ public class QuranActivity extends Activity {
         }
     }
 
+    /** Tombol UNDUH untuk surah yang tampil: UNDUH → persen saat berjalan → OFFLINE bila lengkap. */
+    void refreshDownload() {
+        have = QuranService.downloaded(this);
+        int need = QuranData.count(surah);
+        if (have[surah] >= need) {
+            cDl.setLabel("OFFLINE");
+            cDl.setOn(true);
+        } else {
+            cDl.setLabel(QuranService.dlSurah == surah
+                    ? (QuranService.dlDone * 100 / Math.max(1, QuranService.dlTotal)) + "%"
+                    : "UNDUH");
+            cDl.setOn(false);
+        }
+    }
+
     /** Dipanggil saat status pemutar berubah: perbarui bar, sorot ayat, ikuti bacaan. */
     void refreshPlayer() {
         if (!QuranData.loaded()) return;
@@ -275,7 +363,10 @@ public class QuranActivity extends Activity {
                 ? q.latin.toUpperCase(ID) + (QuranService.bismillah ? "  ·  BASMALAH" : "  ·  " + a)
                 : "TERAKHIR: " + q.latin.toUpperCase(ID) + "  ·  " + a);
         if (QuranService.missing) {
-            npSub.setText("AUDIO BELUM ADA DI PERANGKAT");
+            npSub.setText("AUDIO BELUM ADA  ·  SAMBUNGKAN INTERNET UNTUK MENGUNDUH");
+            npSub.setTextColor(AMBER);
+        } else if (QuranService.buffering) {
+            npSub.setText("MENGUNDUH AUDIO…");
             npSub.setTextColor(AMBER);
         } else {
             npSub.setText(String.format(Locale.US, "%s  ·  AYAT %d / %d",
@@ -286,6 +377,7 @@ public class QuranActivity extends Activity {
         cMode.setLabel(QuranService.mode == QuranService.MODE_REPEAT_AYAH ? "ULANG AYAT"
                 : QuranService.mode == QuranService.MODE_REPEAT_SURAH ? "ULANG SURAH" : "LANJUT");
         cMode.setOn(QuranService.mode != QuranService.MODE_CONTINUE);
+        refreshDownload();
 
         // Harus SEBELUM setSelectionFromTop: invalidateViews() menyimpan posisi scroll saat ini
         // (rememberSyncState) dan akan membatalkan lompatan ke ayat yang sedang dibaca.
@@ -414,7 +506,8 @@ public class QuranActivity extends Activity {
             CharSequence n = TextUtils.ellipsize(q.latin.toUpperCase(ID), name, avail, TextUtils.TruncateAt.END);
             c.drawText(n, 0, n.length(), x, px(36), name);
             meta.setColor(down ? INK : live ? AMBER : DIM);
-            String m = (live ? "▶ " : "") + (q.arti + " · " + q.count + " AYAT").toUpperCase(ID);
+            String m = (live ? "▶ " : "") + (q.arti + " · " + q.count + " AYAT").toUpperCase(ID)
+                    + (have[no] >= q.count ? " · OFFLINE" : "");
             CharSequence mm = TextUtils.ellipsize(m, meta, avail, TextUtils.TruncateAt.END);
             c.drawText(mm, 0, mm.length(), x, px(56), meta);
         }

@@ -20,9 +20,18 @@ import android.os.IBinder;
 import android.os.Looper;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Pemutar murattal per ayat (Mishary Rashid Alafasy) yang tetap jalan di latar.
@@ -33,21 +42,46 @@ public class QuranService extends Service
 
     static final String ACTION_PLAY = "id.kokpit.quran.PLAY", ACTION_TOGGLE = "id.kokpit.quran.TOGGLE",
             ACTION_NEXT = "id.kokpit.quran.NEXT", ACTION_PREV = "id.kokpit.quran.PREV",
-            ACTION_STOP = "id.kokpit.quran.STOP";
+            ACTION_STOP = "id.kokpit.quran.STOP", ACTION_DOWNLOAD = "id.kokpit.quran.DOWNLOAD";
 
     /** LANJUT: terus ke surah berikutnya; SURAH/AYAT: ulangi. */
     static final int MODE_CONTINUE = 0, MODE_REPEAT_SURAH = 1, MODE_REPEAT_AYAH = 2;
     static final String RECITER = "Mishary Rashid Alafasy";
+    /** Audio per ayat; APK tidak membawanya, diunduh saat diputar lalu disimpan untuk offline. */
+    static final String AUDIO_URL = "https://everyayah.com/data/Alafasy_128kbps/%03d%03d.mp3";
 
     // Status dibaca langsung oleh UI (satu proses, thread utama).
     static int surah = 1, ayah = 1, mode = MODE_CONTINUE;
     static boolean playing, active, bismillah, missing;
+    /** buffering: menunggu file ayat yang sedang diputar selesai diunduh. dlSurah 0 = tidak ada unduhan. */
+    static boolean buffering;
+    static int dlSurah, dlDone, dlTotal;
     static final List<Runnable> listeners = new ArrayList<>();
 
     static File audioDir(Context c) { return new File(c.getExternalFilesDir(null), "quran/audio"); }
 
     static File audioFile(Context c, int s, int a) {
         return new File(audioDir(c), String.format(Locale.US, "%03d%03d.mp3", s, a));
+    }
+
+    /** Jumlah file ayat yang sudah tersimpan per surah (indeks 1..114). */
+    static int[] downloaded(Context c) {
+        int[] n = new int[QuranData.SURAH_COUNT + 1];
+        String[] names = audioDir(c).list();
+        if (names == null) return n;
+        for (String f : names) {
+            if (f.length() != 10 || !f.endsWith(".mp3")) continue;
+            try {
+                int s = Integer.parseInt(f.substring(0, 3)), a = Integer.parseInt(f.substring(3, 6));
+                if (s >= 1 && s <= QuranData.SURAH_COUNT && a >= 1) n[s]++;
+            } catch (NumberFormatException ignored) { }
+        }
+        return n;
+    }
+
+    /** Unduh seluruh audio surah {@code s} untuk dipakai offline. */
+    static void download(Context c, int s) {
+        c.startForegroundService(new Intent(c, QuranService.class).setAction(ACTION_DOWNLOAD).putExtra("s", s));
     }
 
     static void send(Context c, String action) {
@@ -83,6 +117,10 @@ public class QuranService extends Service
     NotificationManager nm;
     boolean resumeOnGain;
     final Handler main = new Handler(Looper.getMainLooper());
+    /** Unduhan surah berurutan di satu thread; file yang sedang ditunggu pemutar diunduh terpisah. */
+    final ExecutorService downloader = Executors.newSingleThreadExecutor();
+    final Set<Integer> queued = new HashSet<>();
+    File waitingFor;
     final AudioAttributes attrs = new AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -130,6 +168,9 @@ public class QuranService extends Service
             step(-1);
         } else if (ACTION_STOP.equals(a)) {
             stopAll();
+        } else if (ACTION_DOWNLOAD.equals(a)) {
+            queueSurah(i.getIntExtra("s", surah), 1);
+            publish();
         } else {
             publish();
         }
@@ -139,6 +180,7 @@ public class QuranService extends Service
     @Override public IBinder onBind(Intent i) { return null; }
 
     @Override public void onDestroy() {
+        downloader.shutdownNow();
         release();
         am.abandonAudioFocusRequest(focus);
         session.release();
@@ -165,14 +207,24 @@ public class QuranService extends Service
     }
 
     void playCurrent() {
-        File f = bismillah ? audioFile(this, 1, 1) : audioFile(this, surah, ayah);
+        final File f = bismillah ? audioFile(this, 1, 1) : audioFile(this, surah, ayah);
         release();
-        missing = !f.exists();
-        if (missing) {
+        missing = false;
+        if (!f.exists()) {
+            // Unduh ayat ini dulu (thread sendiri, tidak antre), sisa surah menyusul di latar.
             playing = false;
+            buffering = true;
+            waitingFor = f;
+            final int s = bismillah ? 1 : surah, a = bismillah ? 1 : ayah;
+            new Thread(() -> {
+                boolean ok = fetchAudio(s, a);
+                main.post(() -> onFetched(f, ok));
+            }, "quran-fetch").start();
+            queueSurah(surah, ayah);
             publish();
             return;
         }
+        buffering = false;
         try {
             player = new MediaPlayer();
             player.setAudioAttributes(attrs);
@@ -231,7 +283,73 @@ public class QuranService extends Service
     void pause() {
         if (player != null && playing) player.pause();
         playing = false;
+        waitingFor = null; // batalkan putar-setelah-unduh
+        buffering = false;
         publish();
+    }
+
+    // ------------------------------------------------------------ unduh audio
+
+    void onFetched(File f, boolean ok) {
+        if (!f.equals(waitingFor)) return; // sudah dijeda atau pindah ayat
+        waitingFor = null;
+        buffering = false;
+        if (ok) {
+            playCurrent();
+        } else {
+            missing = true; // offline atau server gagal
+            publish();
+        }
+    }
+
+    /** Antrekan unduhan semua ayat surah {@code s}, dimulai dari ayat {@code from} lalu memutar ke awal. */
+    void queueSurah(int s, int from) {
+        if (!queued.add(s)) return;
+        downloader.execute(() -> {
+            int total = QuranData.count(s), done = 0;
+            for (int k = 0; k < total; k++) {
+                int a = (from - 1 + k) % total + 1;
+                if (audioFile(this, s, a).exists() || fetchAudio(s, a)) done++;
+                final int d = done;
+                main.post(() -> {
+                    dlSurah = s;
+                    dlDone = d;
+                    dlTotal = total;
+                    if (missing && audioFile(this, surah, ayah).exists()) missing = false; // ayat ini sudah tiba
+                    publish();
+                });
+                if (Thread.currentThread().isInterrupted()) return;
+            }
+            main.post(() -> { queued.remove(s); dlSurah = 0; publish(); });
+        });
+    }
+
+    /** Unduh satu file ayat ke penyimpanan; true bila tersedia. Aman dipanggil dari beberapa thread. */
+    boolean fetchAudio(int s, int a) {
+        File dst = audioFile(this, s, a);
+        if (dst.exists()) return true;
+        File dir = dst.getParentFile();
+        if (dir != null) dir.mkdirs();
+        File tmp = new File(dst.getPath() + ".part" + Thread.currentThread().getId());
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(String.format(Locale.US, AUDIO_URL, s, a)).openConnection();
+            c.setConnectTimeout(15000);
+            c.setReadTimeout(30000);
+            c.setRequestProperty("User-Agent", "KlikDash");
+            if (c.getResponseCode() != 200) return false;
+            try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(tmp)) {
+                byte[] buf = new byte[32768];
+                for (int k; (k = in.read(buf)) > 0; ) out.write(buf, 0, k);
+            }
+            return tmp.renameTo(dst) || dst.exists();
+        } catch (Exception e) {
+            android.util.Log.w("KlikDash", "Unduh audio " + s + ":" + a + " gagal", e);
+            return false;
+        } finally {
+            if (c != null) c.disconnect();
+            tmp.delete();
+        }
     }
 
     void stopAll() {
@@ -277,6 +395,16 @@ public class QuranService extends Service
         return bismillah ? name + " · Basmalah" : name + " · Ayat " + ayah;
     }
 
+    String status() {
+        if (missing) return "Audio belum ada — sambungkan internet untuk mengunduh";
+        if (buffering) return "Mengunduh audio…";
+        if (dlSurah > 0) {
+            String name = QuranData.loaded() ? QuranData.get(dlSurah).latin : "Surah " + dlSurah;
+            return "Mengunduh " + name + " " + dlDone + "/" + dlTotal;
+        }
+        return RECITER;
+    }
+
     void publish() {
         long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_PLAY_PAUSE
                 | PlaybackState.ACTION_SKIP_TO_NEXT | PlaybackState.ACTION_SKIP_TO_PREVIOUS | PlaybackState.ACTION_STOP;
@@ -300,7 +428,7 @@ public class QuranService extends Service
         return new Notification.Builder(this, "quran")
                 .setSmallIcon(R.drawable.ic_quran)
                 .setContentTitle(title())
-                .setContentText(missing ? "Audio belum tersedia di perangkat" : RECITER)
+                .setContentText(status())
                 .setContentIntent(open)
                 .setOngoing(playing)
                 .setShowWhen(false)

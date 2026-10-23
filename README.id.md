@@ -11,7 +11,9 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"></a>
+  <a href="https://github.com/ashafizullah/klikdash/releases/latest"><img src="https://img.shields.io/github/v/release/ashafizullah/klikdash?label=release" alt="Release"></a>
+  <a href="https://github.com/ashafizullah/klikdash/releases"><img src="https://img.shields.io/github/downloads/ashafizullah/klikdash/total?color=1fa77a" alt="Downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ashafizullah/klikdash?color=blue" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/Android-10-3DDC84?logo=android&logoColor=white" alt="Android 10">
   <img src="https://img.shields.io/badge/headunit-NWD%20K2401%20%C2%B7%201280%C3%97720-lightgrey" alt="Headunit NWD K2401, 1280x720">
   <br>
@@ -65,6 +67,9 @@ panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa libra
 - Mode putar: Lanjut (terus ke surah berikutnya), Ulang surah, atau Ulang ayat. Posisi terakhir disimpan.
 - Audio tetap jalan di latar (foreground service + MediaSession), sehingga bisa dikendalikan dari
   notifikasi dan tombol media atau setir.
+- Tidak ada yang ikut di APK: teks diunduh sekali di dalam aplikasi (sekitar 6 MB, dari equran.id), dan audio
+  diunduh per ayat saat diputar, sementara sisa surahnya diunduh di latar. Tombol **UNDUH** menyimpan satu
+  surah utuh sebelum perjalanan; surah yang sudah tersimpan ditandai **OFFLINE**.
 
 **Penyetelan otomatis saat menyala** (lihat [Cara kerja khusus firmware](#cara-kerja-khusus-firmware))
 - ksmd dimatikan setiap boot.
@@ -85,6 +90,21 @@ Bagian yang khusus headunit (launcher default, tidur/bangun, Zlink, ksmd) dituju
 
 Zlink dipakai dengan CarPlay nirkabel di iPhone; Android Auto belum diuji. Laporan dari headunit lain sangat membantu:
 buka issue dengan menyebut model, ukuran layar, dan versi Android.
+
+## Pemasangan
+
+1. Unduh `klikdash-<versi>.apk` dari [Releases](https://github.com/ashafizullah/klikdash/releases/latest).
+2. Pasang: salin ke flashdisk lalu buka dengan file manager headunit, atau jalankan
+   `adb install klikdash-<versi>.apk`.
+3. Jadikan home: tekan Home lalu pilih **KlikDash** › *Selalu*. Firmware NWD memaksa launcher bawaannya,
+   jadi di headunit NWD jalankan juga (sekali, lewat ADB):
+   ```bash
+   adb shell setprop persist.nwd.launcher.default id.kokpit
+   adb shell cmd package set-home-activity id.kokpit/.HomeActivity
+   ```
+4. Izinkan akses lokasi saat diminta (untuk jadwal sholat).
+5. Saat ada internet, buka **Al-Qur'an** sekali dan ketuk **UNDUH TEKS** untuk mengunduh teksnya.
+6. Jalankan [daftar uji sebelum berkendara](#disclaimer) dalam keadaan mobil diam.
 
 ## Struktur
 
@@ -133,6 +153,7 @@ dengan petunjuk bila file itu belum ada.
 ```bash
 adb connect 192.168.1.17:5555
 ./build.sh              # build saja → build/klikdash.apk
+./build.sh release      # APK rilis publik tanpa teks Al-Qur'an → build/klikdash-<versi>.apk
 ./build.sh install      # build, pasang, beri izin lokasi, jadikan home
 DEVICE=1.2.3.4:5555 ./build.sh install   # kalau IP headunit berubah
 ```
@@ -142,8 +163,9 @@ sampai `set-home-activity` dijalankan ulang.
 
 ## Audio murattal
 
-Audio tidak ikut APK. Lokasinya di headunit:
-`/sdcard/Android/data/id.kokpit/files/quran/audio/SSSAAA.mp3` (1,6 GB).
+Aplikasi mengunduh audionya sendiri (lihat Fitur). Untuk mengisi ke-114 surah sekaligus (1,6 GB) tanpa
+memakai koneksi headunit, unduh di komputer lalu kirim lewat ADB. Lokasi filenya:
+`/sdcard/Android/data/id.kokpit/files/quran/audio/SSSAAA.mp3`.
 
 ```bash
 # unduh (sekali)
@@ -164,9 +186,11 @@ Basmalah sebelum ayat 1 (kecuali Al-Fatihah dan At-Taubah) memakai `001001.mp3`.
 
 ## Teks Al-Qur'an
 
-Teks mushaf dan terjemahan Kemenag **tidak disertakan di repo ini**. Peredaran mushaf di Indonesia diatur
-PMA 44/2016 (pentashihan LPMQ), dan skrip di bawah juga menyesuaikan beberapa tanda agar bisa ditampilkan
-font Amiri. Unduh dan bangun sendiri untuk pemakaian pribadi:
+Teks mushaf dan terjemahan Kemenag **tidak disertakan di repo ini maupun di APK rilis**. Peredaran mushaf di
+Indonesia diatur PMA 44/2016 (pentashihan LPMQ). Aplikasi mengunduh teksnya dari equran.id saat pertama
+dipakai dan membersihkannya dengan cara yang sama seperti `tools/build_quran.py` (hasilnya identik byte per
+byte), yaitu menyesuaikan beberapa tanda agar bisa ditampilkan font Amiri. Untuk build pengembang sendiri,
+teksnya bisa disertakan (`./build.sh` menyertakan `assets/quran.txt` bila ada; `./build.sh release` tidak pernah):
 
 ```bash
 mkdir -p ../quran-data/text
