@@ -76,10 +76,12 @@ final class Tweaks {
     private static void shell(String cmd) throws IOException { exec(cmd); }
 
     /** Jalankan perintah lewat ADB lokal dan kembalikan keluarannya. Jalankan di thread latar. */
-    static String exec(String cmd) throws IOException {
+    static String exec(String cmd) throws IOException { return exec(cmd, 15000); }
+
+    static String exec(String cmd, int timeoutMs) throws IOException {
         try (Socket s = new Socket()) {
             s.connect(new InetSocketAddress("127.0.0.1", 5555), 3000);
-            s.setSoTimeout(15000);
+            s.setSoTimeout(timeoutMs);
             DataInputStream in = new DataInputStream(s.getInputStream());
             OutputStream out = s.getOutputStream();
 

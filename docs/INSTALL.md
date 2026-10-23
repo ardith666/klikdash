@@ -106,7 +106,7 @@ working.**
 Headunit running hot or slow? Some apps, such as Netflix or Spotify, can keep running in the background even
 when you are not using them. To stop that:
 
-1. Tap **SEMUA**, then **HEMAT DAYA** at the top right.
+1. Tap the **⚙** button at the top of the home screen (next to the CPU temperature), then the **HEMAT DAYA** tab.
 2. Tap **BATASI** ("restrict") on any app that does not need to run in the background. It changes to
    **DIBATASI** ("restricted"). Apps that are *SEDANG BERJALAN DI LATAR* (running in the background now) are
    listed first.
@@ -118,12 +118,38 @@ again to allow it, or **KEMBALIKAN SEMUA** ("restore all") to undo everything. S
 are deliberately left out so navigation and CarPlay keep working. This needs USB debugging on, like the
 home-screen button.
 
+## Voice assistant (TANYA)
+
+Optional. TANYA understands short commands in Indonesian, such as *"putar surat Yasin"* (play Surah Yasin),
+*"navigasi ke masjid terdekat pakai Waze"*, *"buka Zlink"* or *"stop murottalnya"*, and answers out loud.
+
+1. Get an API key from [console.anthropic.com](https://console.anthropic.com) (Claude) or from any
+   OpenAI-compatible provider, and one from [elevenlabs.io](https://elevenlabs.io) for the voice. Give the
+   ElevenLabs key the *Text to Speech*, *Speech to Text* and *Voices* permissions.
+2. Open **⚙ › ASISTEN AI**, tap **+ CLAUDE** (or **+ OPENAI-COMPATIBLE**), paste the key, tap
+   **PILIH MODEL** to pick a model (Claude Haiku 5.5 is the fastest), then **SIMPAN** and **UJI**.
+   Typing a long key on the headunit is tedious: tap the field, then from a computer run
+   `adb shell input text 'YOUR_KEY'`.
+3. Under **SUARA ELEVENLABS**, tap **API KEY** and paste the ElevenLabs key. An Indonesian voice is set for you;
+   **SUARA** picks another one, and **DENGAR** plays a sample.
+4. Put TANYA on the home screen: long-press a home shortcut, release it in place and pick **Tanya**.
+
+![TANYA answering a command](img/tanya.png)
+
+Keys are stored encrypted on the headunit and are only sent to the provider you set. Usage is billed to your own
+accounts.
+
+## Updates
+
+Open **⚙ › LAUNCHER** and tap **CEK UPDATE**. If there is a new version, tap **Unduh & pasang**: KlikDash checks
+that the download is signed by the same key, installs it and opens again. Settings and downloaded audio are kept.
+
+![The Launcher tab in Settings](img/settings.png)
+
 ## Switch back to the stock launcher
 
-Tap **SEMUA**, then **LAUNCHER BAWAAN** ("stock launcher") at the top right, and confirm. KlikDash stays
-installed and can be made the home screen again at any time.
-
-![The LAUNCHER BAWAAN button on the All apps page](img/drawer.png)
+Open **⚙ › LAUNCHER**, tap **LAUNCHER BAWAAN** ("stock launcher") and confirm. KlikDash stays installed and can
+be made the home screen again at any time.
 
 To remove KlikDash completely, open **Settings › Apps › KlikDash › Uninstall**. Downloaded recitation audio
 is deleted with it.

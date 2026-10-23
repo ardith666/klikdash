@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  Launcher ringan, gratis, dan open source untuk headunit Android mobil NWD K2401 (Allwinner, Android 10, 1280×720): home bergaya panel instrumen pengganti animasi 3D bawaan, jadwal sholat dari GPS dengan hitung mundur, suhu CPU, ubin aplikasi yang bisa disusun, dan Al-Qur'an offline dengan murattal Mishary Alafasy. Sepenuhnya offline, tanpa akun.
+  Launcher ringan, gratis, dan open source untuk headunit Android mobil NWD K2401 (Allwinner, Android 10, 1280×720): home bergaya panel instrumen pengganti animasi 3D bawaan, jadwal sholat dari GPS dengan hitung mundur, suhu CPU, pintasan aplikasi yang bisa disusun, dan Al-Qur'an offline dengan murattal Mishary Alafasy. Sepenuhnya offline, tanpa akun.
 </p>
 
 <p align="center">
@@ -46,7 +46,7 @@ panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa libra
 
 **Home**
 - Jam besar, hari dan tanggal dalam bahasa Indonesia, tanggal Hijriah (Umm al-Qura, cocok dengan kalender
-  Kemenag; ketuk untuk koreksi ±2 hari), serta penggaris 24 jam dengan penanda waktu sholat.
+  Kemenag; koreksi ±2 hari ada di Pengaturan), serta penggaris 24 jam dengan penanda waktu sholat.
 - Kecepatan km/h di samping jam, dari GPS (headunit ini tidak menyediakan kecepatan dari CAN). Berwarna amber di
   atas 100 km/h, dan tampil "--" saat GPS belum dapat sinyal.
 - Jadwal sholat offline metode Kemenag (Subuh 20°, Isya 18°, Ashar Syafi'i, ihtiyath +2 menit).
@@ -54,11 +54,13 @@ panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa libra
   Hitung mundur ke waktu sholat berikutnya diperbarui per detik.
 - Suhu CPU headunit, diperbarui tiap 5 detik. Warnanya abu-abu di bawah 70 °C, amber mulai 70 °C,
   dan merah dengan tulisan "PANAS" mulai 85 °C.
-- Grid 4×3 berisi 11 ubin aplikasi dan ubin **Semua aplikasi**.
+- Grid berisi 11 pintasan aplikasi dan pintasan **Semua aplikasi** (4×3 di layar 1280×720; tata letaknya menyesuaikan
+  ukuran layar lain dan layar tegak).
   - **Ketuk:** buka aplikasi.
-  - **Tekan lama lalu geser** ke ubin lain: tukar posisi.
-  - **Tekan lama lalu lepas di tempat:** pilih aplikasi lain untuk ubin itu.
+  - **Tekan lama lalu geser** ke pintasan lain: tukar posisi.
+  - **Tekan lama lalu lepas di tempat:** pilih aplikasi lain untuk pintasan itu.
 - Di daftar Semua aplikasi, tekan lama sebuah aplikasi untuk membuka App Info.
+- Tombol ⚙ di samping suhu CPU membuka **Pengaturan**.
 
 **Al-Qur'an (offline)**
 - 114 surah dengan teks Arab mushaf standar Kemenag, terjemahan Kemenag, dan Latin yang bisa dinyalakan
@@ -76,12 +78,35 @@ panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa libra
 - 19 bacaan pagi dan 18 bacaan petang (Ayat Kursi, Al-Ikhlas, Al-Falaq, An-Nas, Sayyidul Istighfar, dan lainnya)
   dalam Arab, Latin, dan arti, dengan tombol hitung besar yang pindah ke bacaan berikutnya begitu jumlahnya
   terpenuhi. Pagi sebelum Ashar, petang sejak Ashar, sesuai jadwal sholat Anda; progres tersimpan untuk hari itu.
-- Ubin **DZIKIR** ada di samping **AL-QUR'AN** dan menampilkan *PAGI* atau *PETANG*.
+- Pintasan **DZIKIR** ada di samping **AL-QUR'AN** dan menampilkan *PAGI* atau *PETANG*.
 
-**Hemat Daya (HEMAT DAYA)**
-- Menampilkan aplikasi pihak ketiga, dengan yang sedang berjalan di latar paling atas, dan melarang
-  masing-masing berjalan di latar dengan sekali ketuk. Aplikasinya tetap terpasang dan bisa dibuka seperti
-  biasa. Aplikasi sistem, Maps, Waze, dan Zlink tidak pernah ditampilkan. Butuh USB debugging aktif.
+**Asisten suara (TANYA)**
+- Ketuk pintasan **TANYA**, ketuk mikrofon, lalu ucapkan perintah, misalnya *"putar surat Yasin"*, *"navigasi ke masjid
+  terdekat pakai Waze"*, *"buka Zlink"*, *"jam berapa sekarang"*, atau *"stop murottalnya"*. Jawaban tampil dan
+  dibacakan; pertanyaan lanjutan di sesi yang sama tetap nyambung.
+- AI bisa menjalankan perintah mobil berikut (tool use / function calling, tertanam di aplikasi, tanpa server MCP):
+  buka aplikasi, mulai navigasi di Maps atau Waze, putar atau kendalikan murattal dan media lain, atur volume,
+  jadwal sholat, buka dzikir pagi/petang, larang aplikasi berjalan di latar, status mobil (jam, tanggal Hijriah,
+  kecepatan, suhu CPU, lokasi), dan kembali ke home.
+- **Pakai AI pilihan sendiri:** Claude (API Anthropic) atau API OpenAI-compatible mana pun (OpenAI, OpenRouter,
+  Groq, server lokal, …). Simpan beberapa profil lalu pilih yang aktif; model bisa dipilih dari daftar penyedia.
+  Claude Haiku 5.5 menjawab satu perintah dalam sekitar satu detik.
+- **Suara:** ElevenLabs untuk mengenali ucapan (Scribe) dan membacakan jawaban, dengan pemilih suara yang
+  menampilkan suara Indonesia terpopuler (bawaan: *Putra*). Pengenal suara dan TTS bawaan Android dipakai bila
+  headunit punya (K2401 tidak punya keduanya, jadi butuh ElevenLabs untuk suara). Musik dan murattal dijeda
+  selama TANYA mendengar dan menjawab, lalu lanjut lagi.
+- API key dienkripsi dengan kunci Android Keystore dan hanya dikirim ke penyedia yang Anda atur.
+
+**Pengaturan (PENGATURAN)**
+- **Launcher:** jadikan KlikDash tampilan utama atau kembali ke launcher bawaan, koreksi tanggal Hijriah, atur
+  ulang pintasan home, buka pengaturan Android, dan **cek update**.
+- **Hemat Daya:** menampilkan aplikasi pihak ketiga, dengan yang sedang berjalan di latar paling atas, dan
+  melarang masing-masing berjalan di latar dengan sekali ketuk. Aplikasinya tetap terpasang dan bisa dibuka
+  seperti biasa. Aplikasi sistem, Maps, Waze, dan Zlink tidak pernah ditampilkan. Butuh USB debugging aktif.
+- **Asisten AI:** profil AI, key ElevenLabs, suara dan model, serta suara jawaban.
+- **Pembaruan** diambil dari GitHub Releases repo ini. APK unduhan hanya dipasang bila nama paket, versi, dan
+  sertifikat tanda tangannya cocok dengan KlikDash yang terpasang. Di firmware NWD pemasangannya otomatis lalu
+  KlikDash terbuka lagi; di perangkat lain Android meminta konfirmasi.
 
 **Penyetelan otomatis saat menyala** (lihat [Cara kerja khusus firmware](#cara-kerja-khusus-firmware))
 - ksmd dimatikan setiap boot.
@@ -90,7 +115,7 @@ panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa libra
 
 ## Perangkat yang didukung
 
-KlikDash butuh **Android 10 atau lebih baru** dan tata letaknya dibuat untuk layar **1280×720 landscape**.
+KlikDash butuh **Android 10 atau lebih baru** dan dirancang untuk layar **1280×720 landscape**.
 Bagian yang khusus headunit (launcher default, tidur/bangun, Zlink, ksmd) ditujukan untuk firmware NWD.
 
 | Perangkat | Layar | Android | Status |
@@ -98,7 +123,7 @@ Bagian yang khusus headunit (launcher default, tidur/bangun, Zlink, ksmd) dituju
 | NWD K2401 (Allwinner sun50iw10) | 1280×720 | 10 | ✅ diuji di perangkat asli |
 | Headunit lain dengan firmware NWD | 1280×720 | 10+ | ⚠️ seharusnya jalan, belum diuji |
 | Headunit Android lain (FYT, MTK, Rockchip, …) | 1280×720 | 10+ | ⚠️ launcher, jadwal sholat, dan Al-Qur'an seharusnya jalan; penyetelan khusus NWD tidak berlaku |
-| Ukuran layar lain atau layar portrait | – | 10+ | ❌ belum dibuatkan tata letaknya |
+| Ukuran layar lain atau layar portrait | 800×480 ke atas | 10+ | ⚠️ tata letak menyesuaikan (dicek di emulator berbagai ukuran), belum diuji di perangkat asli |
 
 Zlink dipakai dengan CarPlay nirkabel di iPhone; Android Auto belum diuji. Laporan dari headunit lain sangat membantu:
 buka issue dengan menyebut model, ukuran layar, dan versi Android.
@@ -112,7 +137,7 @@ buka issue dengan menyebut model, ukuran layar, dan versi Android.
    `adb install klikdash-<versi>.apk`.
 3. Jadikan home: buka KlikDash lalu ketuk tombol kuning **JADIKAN TAMPILAN UTAMA**. Di firmware NWD,
    tombol ini mengatur launcher sendiri (butuh USB debugging aktif); di headunit lain, tombol ini membuka
-   pengaturan *Aplikasi home default*. Tombol **LAUNCHER BAWAAN** di halaman Semua aplikasi mengembalikannya.
+   pengaturan *Aplikasi home default*. **Pengaturan › Launcher › LAUNCHER BAWAAN** mengembalikannya.
    Cara manual lewat ADB:
    ```bash
    adb shell setprop persist.nwd.launcher.default com.klikdash.app
@@ -120,7 +145,12 @@ buka issue dengan menyebut model, ukuran layar, dan versi Android.
    ```
 4. Izinkan akses lokasi saat diminta (untuk jadwal sholat).
 5. Saat ada internet, buka **Al-Qur'an** sekali dan ketuk **UNDUH TEKS** untuk mengunduh teksnya.
-6. Jalankan [daftar uji sebelum berkendara](#disclaimer) dalam keadaan mobil diam.
+6. Opsional, untuk asisten suara: di **Pengaturan › Asisten AI**, tambahkan profil Claude atau OpenAI-compatible
+   dengan API key Anda, dan API key ElevenLabs (suara Indonesia bawaan langsung terpasang).
+7. Jalankan [daftar uji sebelum berkendara](#disclaimer) dalam keadaan mobil diam.
+
+**Memperbarui:** mulai 1.3.0, pakai **Pengaturan › Launcher › CEK UPDATE**. Versi lama: pasang APK baru di atas
+yang lama; pengaturan dan audio yang sudah diunduh tetap ada.
 
 ## Struktur
 
@@ -130,13 +160,22 @@ klikdash/
 ├── build.sh                  build + pasang ke headunit
 ├── klikdash.keystore         kunci tanda tangan APK (jangan hilang, lihat Catatan)
 ├── src/com/klikdash/app/
-│   ├── HomeActivity.java     launcher: ubin, jam, sholat, suhu, drag & drop
+│   ├── HomeActivity.java     launcher: pintasan, jam, sholat, suhu, drag & drop
 │   ├── PrayerTimes.java      perhitungan jadwal sholat (algoritma praytimes.org)
 │   ├── QuranActivity.java    tampilan mushaf + pemutar
 │   ├── QuranService.java     pemutar murattal di latar
 │   ├── QuranData.java        pemuat assets/quran.txt
 │   ├── DzikirActivity.java   dzikir pagi & petang dengan penghitung berpanduan
-│   ├── PowerActivity.java    Hemat Daya: larang aplikasi berjalan di latar
+│   ├── SettingsActivity.java pengaturan bertab: launcher, Hemat Daya, asisten AI
+│   ├── AiPanel.java          tab Asisten AI: profil, model, pemilih suara & model ElevenLabs
+│   ├── Updater.java          cek update dari GitHub Releases, cek tanda tangan, pasang
+│   ├── HomeSwitch.java       jadikan KlikDash tampilan utama / kembali ke launcher bawaan
+│   ├── PowerPanel.java       tab Hemat Daya: larang aplikasi berjalan di latar
+│   ├── AskActivity.java      pintasan TANYA: asisten suara untuk perintah mobil
+│   ├── AiClient.java         loop tool-use AI (Claude Messages API / OpenAI-compatible)
+│   ├── AiTools.java          perintah mobil yang boleh dijalankan AI (buka aplikasi, navigasi, murattal, volume…)
+│   ├── AiStore.java          profil AI; API key dienkripsi dengan Android Keystore
+│   ├── AiVoice.java          suara: ElevenLabs atau TTS Android, cadangan ElevenLabs Scribe
 │   └── Tweaks.java           perintah sistem lewat ADB lokal (ksmd, sembunyikan Zlink, launcher, appops)
 ├── res/                      tema, ikon vektor
 ├── assets/
@@ -231,10 +270,11 @@ di latar.
 
 | Perubahan | Kapan | Cara mengembalikan |
 |---|---|---|
-| Launcher default `persist.nwd.launcher.default=com.klikdash.app` (NWD) dan preferensi HOME | Saat Anda mengetuk **JADIKAN TAMPILAN UTAMA** | **LAUNCHER BAWAAN** di halaman Semua aplikasi, atau `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
+| Launcher default `persist.nwd.launcher.default=com.klikdash.app` (NWD) dan preferensi HOME | Saat Anda mengetuk **JADIKAN TAMPILAN UTAMA** | **Pengaturan › Launcher › LAUNCHER BAWAAN**, atau `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
 | ksmd dimatikan | Setiap boot, selama KlikDash jadi tampilan home (butuh ADB aktif) | Kembali ke launcher bawaan atau uninstall KlikDash, lalu reboot |
 | Zlink dikembalikan ke home bila terbuka sendiri | 3 menit pertama setelah boot atau bangun dari tidur | Sama seperti di atas |
-| Aplikasi dilarang jalan di latar (`appops RUN_ANY_IN_BACKGROUND/RUN_IN_BACKGROUND ignore`) | Hanya untuk aplikasi yang Anda nyalakan di **HEMAT DAYA** | Ketuk aplikasinya lagi, atau **KEMBALIKAN SEMUA** |
+| Aplikasi dilarang jalan di latar (`appops RUN_ANY_IN_BACKGROUND/RUN_IN_BACKGROUND ignore`) | Hanya untuk aplikasi yang Anda nyalakan di **HEMAT DAYA**, atau atas permintaan ke TANYA | Ketuk aplikasinya lagi, atau **KEMBALIKAN SEMUA** |
+| KlikDash diperbarui dengan `pm install` | Hanya saat Anda mengetuk **Unduh & pasang** di Pengaturan | Pasang APK lama dengan `adb install -r -d` |
 
 Launcher NWD lama **tidak dihapus**. Prosesnya tetap ada karena juga menangani info mobil dari CAN.
 
@@ -257,6 +297,10 @@ Launcher NWD lama **tidak dihapus**. Prosesnya tetap ada karena juga menangani i
 
 ## Catatan & keterbatasan
 
+- **Privasi dan biaya asisten suara.** Ucapan Anda dikirim ke ElevenLabs untuk ditranskripsi, dan teksnya, beserta
+  daftar nama aplikasi terpasang, jam sekarang, dan lokasi bila perintahnya butuh, dikirim ke penyedia AI profil
+  yang aktif. Pemakaian ditagihkan ke akun Anda sendiri. Tidak ada yang lewat server KlikDash. AI bisa keliru:
+  periksa apa yang dilakukannya, dan jangan andalkan untuk hal yang menyangkut keselamatan.
 - **Keamanan.** ADB WiFi yang aktif memberi akses penuh ke headunit. Hanya sambungkan headunit ke jaringan
   pribadi (misalnya hotspot HP sendiri), jangan ke WiFi publik.
 - **Nama kota tidak terdeteksi otomatis**, karena geocoder di perangkat ini tidak mengembalikan hasil.
@@ -291,7 +335,8 @@ Launcher NWD lama **tidak dihapus**. Prosesnya tetap ada karena juga menangani i
 
 - Mengganti launcher default dan pengaturan sistem tidak didukung produsen headunit dan bisa berpengaruh
   pada garansi. Semua perubahan bisa dikembalikan (lihat [Perubahan pada headunit](#perubahan-pada-headunit)).
-- **Jangan mengoperasikan layar sambil menyetir.** Pakai tombol setir, atau berhenti dengan aman dulu.
+- **Jangan mengoperasikan layar sambil menyetir.** Pakai tombol setir, atau berhenti dengan aman dulu. TANYA
+  tetap perlu diketuk untuk mulai mendengar; cukup perintah singkat dan tetap fokus ke jalan.
 - Jadwal sholat adalah hasil hitungan dan bisa selisih sekitar satu menit dari jadwal resmi; ikuti masjid
   atau otoritas setempat.
 - Teks Al-Qur'an dan terjemahannya tidak disertakan; periksa teks yang Anda bangun terhadap mushaf resmi.
@@ -327,4 +372,5 @@ done
   Al-Qur'an dari [Tanzil](https://tanzil.net) (CC BY 3.0). Bangun ulang dengan
   `node tools/build_dzikir.mjs <klikband>/src/common/dhikrmorningevening.js assets/dzikir.json`.
 
-Proyek ini tidak berafiliasi dengan NWD, Zjinnova (Zlink), Apple, Google, maupun Kemenag RI.
+Proyek ini tidak berafiliasi dengan NWD, Zjinnova (Zlink), Apple, Google, Anthropic, OpenAI, ElevenLabs, maupun
+Kemenag RI.

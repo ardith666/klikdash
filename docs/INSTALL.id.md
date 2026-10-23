@@ -56,7 +56,7 @@ terbuka supaya GPS cepat mendapat sinyal.
 ## 5. Al-Qur'an
 
 1. Sambungkan headunit ke internet, misalnya lewat hotspot HP.
-2. Ketuk ubin **AL-QUR'AN**, lalu ketuk **UNDUH TEKS**. Cukup sekali; setelah itu mushaf bisa dibaca offline.
+2. Ketuk pintasan **AL-QUR'AN**, lalu ketuk **UNDUH TEKS**. Cukup sekali; setelah itu mushaf bisa dibaca offline.
 
    ![Unduh teks Al-Qur'an sekali](img/quran-download.png)
 
@@ -71,7 +71,7 @@ notifikasi atau tombol media (termasuk tombol setir, bila headunit meneruskannya
 
 ## Dzikir pagi & petang
 
-Ketuk ubin **DZIKIR** di samping AL-QUR'AN. Sebelum Ashar yang terbuka dzikir pagi, sejak Ashar dzikir petang;
+Ketuk pintasan **DZIKIR** di samping AL-QUR'AN. Sebelum Ashar yang terbuka dzikir pagi, sejak Ashar dzikir petang;
 bisa diganti dengan tombol **PAGI** / **PETANG**. Baca teksnya, lalu ketuk tombol kuning besar setiap selesai
 satu kali bacaan. Begitu jumlahnya terpenuhi (misalnya 3×), layar pindah sendiri ke bacaan berikutnya. Progres
 hari itu tersimpan, jadi aman ditinggal lalu dilanjutkan.
@@ -91,10 +91,10 @@ tidak berfungsi.**
 
 ## Pemakaian sehari-hari
 
-- **Buka aplikasi:** ketuk ubinnya.
-- **Ganti aplikasi di ubin:** tekan lama ubin, lepas di tempat, lalu pilih aplikasinya.
-- **Tukar posisi ubin:** tekan lama ubin, geser ke ubin lain, lalu lepas.
-- **Semua aplikasi:** ketuk ubin **SEMUA**. Tekan lama sebuah aplikasi di sana untuk membuka infonya
+- **Buka aplikasi:** ketuk pintasannya.
+- **Ganti aplikasi di pintasan:** tekan lama pintasan, lepas di tempat, lalu pilih aplikasinya.
+- **Tukar posisi pintasan:** tekan lama pintasan, geser ke pintasan lain, lalu lepas.
+- **Semua aplikasi:** ketuk pintasan **SEMUA**. Tekan lama sebuah aplikasi di sana untuk membuka infonya
   (misalnya untuk uninstall).
 - **Suhu CPU** di kiri atas berwarna amber mulai 70 °C dan merah ("PANAS") mulai 85 °C.
 
@@ -103,7 +103,7 @@ tidak berfungsi.**
 Headunit terasa panas atau lambat? Sebagian aplikasi, misalnya Netflix atau Spotify, bisa berjalan diam-diam di
 latar walaupun tidak dibuka. Untuk membatasinya:
 
-1. Ketuk **SEMUA**, lalu **HEMAT DAYA** di kanan atas.
+1. Ketuk tombol **⚙** di atas layar home (di samping suhu CPU), lalu tab **HEMAT DAYA**.
 2. Ketuk **BATASI** di aplikasi yang tidak perlu jalan di latar. Tulisannya berubah menjadi **DIBATASI**.
    Aplikasi yang *SEDANG BERJALAN DI LATAR* tampil paling atas.
 
@@ -114,12 +114,39 @@ belakang. Ketuk lagi untuk mengizinkan, atau **KEMBALIKAN SEMUA** untuk mengemba
 sistem, Maps, Waze, dan Zlink sengaja tidak ditampilkan supaya navigasi dan CarPlay tetap jalan. Fitur ini butuh
 USB debugging aktif, sama seperti tombol tampilan utama.
 
+## Asisten suara (TANYA)
+
+Opsional. TANYA mengerti perintah singkat, misalnya *"putar surat Yasin"*, *"navigasi ke masjid terdekat pakai
+Waze"*, *"buka Zlink"*, atau *"stop murottalnya"*, dan menjawab dengan suara.
+
+1. Siapkan API key dari [console.anthropic.com](https://console.anthropic.com) (Claude) atau penyedia
+   OpenAI-compatible lain, dan dari [elevenlabs.io](https://elevenlabs.io) untuk suara. Beri key ElevenLabs izin
+   *Text to Speech*, *Speech to Text*, dan *Voices*.
+2. Buka **⚙ › ASISTEN AI**, ketuk **+ CLAUDE** (atau **+ OPENAI-COMPATIBLE**), tempel key-nya, ketuk
+   **PILIH MODEL** untuk memilih model (Claude Haiku 5.5 paling cepat), lalu **SIMPAN** dan **UJI**.
+   Mengetik key panjang di headunit itu repot: ketuk kolomnya, lalu dari komputer jalankan
+   `adb shell input text 'KEY_ANDA'`.
+3. Di **SUARA ELEVENLABS**, ketuk **API KEY** lalu tempel key ElevenLabs. Suara Indonesia langsung terpasang;
+   **SUARA** untuk memilih suara lain, **DENGAR** untuk mencoba.
+4. Taruh TANYA di home: tekan lama salah satu pintasan, lepas di tempat, lalu pilih **Tanya**.
+
+![TANYA menjawab perintah](img/tanya.png)
+
+Key disimpan terenkripsi di headunit dan hanya dikirim ke penyedia yang Anda atur. Pemakaian ditagihkan ke akun
+Anda sendiri.
+
+## Pembaruan
+
+Buka **⚙ › LAUNCHER** lalu ketuk **CEK UPDATE**. Bila ada versi baru, ketuk **Unduh & pasang**: KlikDash
+memastikan unduhannya ditandatangani kunci yang sama, memasangnya, lalu terbuka lagi. Pengaturan dan audio yang
+sudah diunduh tetap ada.
+
+![Tab Launcher di Pengaturan](img/settings.png)
+
 ## Kembali ke launcher bawaan
 
-Ketuk **SEMUA**, lalu ketuk **LAUNCHER BAWAAN** di kanan atas, dan konfirmasi. KlikDash tetap terpasang dan
-bisa dijadikan tampilan utama lagi kapan saja.
-
-![Tombol LAUNCHER BAWAAN di halaman Semua Aplikasi](img/drawer.png)
+Buka **⚙ › LAUNCHER**, ketuk **LAUNCHER BAWAAN**, lalu konfirmasi. KlikDash tetap terpasang dan bisa dijadikan
+tampilan utama lagi kapan saja.
 
 Mau menghapus KlikDash sepenuhnya? Buka **Pengaturan › Aplikasi › KlikDash › Uninstall**. Audio murattal
 yang sudah diunduh ikut terhapus.
@@ -137,8 +164,8 @@ Murattal untuk surah itu belum diunduh. Sambungkan internet, lalu putar lagi ata
 Itu normal. CarPlay nirkabel memakai hotspot headunit, dan headunit tidak bisa menjalankan hotspot dan WiFi
 biasa bersamaan. Unduh surah yang ingin diputar sebelum menyambungkan CarPlay.
 
-**Ada ubin yang kosong atau bertulisan "KETUK UNTUK ISI".**
-Aplikasi bawaan untuk ubin itu tidak ada di headunit Anda. Ketuk ubin itu, lalu pilih aplikasi lain.
+**Ada pintasan yang kosong atau bertulisan "KETUK UNTUK ISI".**
+Aplikasi bawaan untuk pintasan itu tidak ada di headunit Anda. Ketuk pintasan itu, lalu pilih aplikasi lain.
 
 **Suhu CPU tidak tampil.**
 Sensor suhu di headunit itu tidak bisa dibaca oleh aplikasi. Fitur lain tetap jalan.

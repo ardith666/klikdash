@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mikrofon amber dengan gelombang suara krem: asisten suara TANYA. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path android:fillColor="#FFFFB000"
+        android:pathData="M18,10a6,6 0 0 1 12,0v12a6,6 0 0 1 -12,0z" />
+    <path android:fillColor="#FFECE6D8"
+        android:pathData="M12,21h3a9,9 0 0 0 18,0h3a12,12 0 0 1 -10.5,11.9v5.1h5v3h-13v-3h5v-5.1a12,12 0 0 1 -10.5,-11.9z" />
+    <path android:fillColor="#FFECE6D8"
+        android:pathData="M5,14h2.5v10h-2.5zM40.5,14h2.5v10h-2.5z" />
+</vector>

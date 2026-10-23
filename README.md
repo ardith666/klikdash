@@ -47,7 +47,7 @@ without Gradle. The app's own interface is in Indonesian.
 
 **Home**
 - A large clock, the day and date in Indonesian, the Hijri date (Umm al-Qura, matching the Kemenag calendar;
-  tap it for a ±2-day correction), and a 24-hour ruler with prayer-time markers.
+  a ±2-day correction is in Settings), and a 24-hour ruler with prayer-time markers.
 - Speed in km/h next to the clock, from GPS (this headunit exposes no CAN speed). It turns amber above 100 km/h
   and shows "--" when the GPS has no fix.
 - Offline prayer times using the Kemenag (Indonesian Ministry of Religious Affairs) method: Fajr 20°,
@@ -55,11 +55,13 @@ without Gradle. The app's own interface is in Indonesian.
   *passive provider*, which adds no extra load. The countdown to the next prayer updates every second.
 - Headunit CPU temperature, refreshed every 5 seconds. It is grey below 70 °C, amber from 70 °C, and red
   with "PANAS" (hot) from 85 °C.
-- A 4×3 grid of 11 app tiles plus an **All apps** tile.
+- A grid of 11 app tiles plus an **All apps** tile (4×3 on a 1280×720 screen; the layout adapts to other
+  screen sizes and to portrait).
   - **Tap:** open the app.
   - **Long-press and drag** onto another tile: swap their positions.
   - **Long-press and release in place:** pick a different app for that tile.
 - In the All apps list, long-press an app to open its App Info.
+- The ⚙ button next to the CPU temperature opens **Settings**.
 
 **Quran (offline)**
 - All 114 surahs with the Kemenag standard mushaf Arabic text, the Kemenag Indonesian translation, and
@@ -79,10 +81,33 @@ without Gradle. The app's own interface is in Indonesian.
   reached. Morning before Asr, evening from Asr, based on your prayer times; progress is kept for the day.
 - The **DZIKIR** tile sits next to **AL-QUR'AN** and shows *PAGI* or *PETANG*.
 
-**Power saver (HEMAT DAYA)**
-- Lists third-party apps, with the ones running in the background now at the top, and lets you block each one
-  from running in the background with a single tap. The apps stay installed and still open normally. System
-  apps, Maps, Waze and Zlink are never listed. Needs USB debugging on.
+**Voice assistant (TANYA)**
+- Tap the **TANYA** tile, tap the microphone and say a command in Indonesian, for example *"putar surat Yasin"*
+  (play Surah Yasin), *"navigasi ke masjid terdekat pakai Waze"*, *"buka Zlink"*, *"jam berapa sekarang"* or
+  *"stop murottalnya"*. The answer is shown and spoken; follow-up questions in the same session keep their context.
+- The AI can run these car commands (tool use / function calling, built into the app, no MCP server): open an
+  app, start navigation in Maps or Waze, play or control the recitation and other media, set the volume, prayer
+  times, open the morning/evening dhikr, block an app from running in the background, car status (time, Hijri
+  date, speed, CPU temperature, location), and go home.
+- **Bring your own AI:** Claude (Anthropic API) or any OpenAI-compatible API (OpenAI, OpenRouter, Groq, a local
+  server, …). Save several profiles and pick the active one; models can be picked from the provider's list.
+  Claude Haiku 5.5 answers a command in about one second.
+- **Voice:** ElevenLabs for speech-to-text (Scribe) and spoken answers, with a voice picker that lists popular
+  Indonesian voices (default: *Putra*). Android's own speech recognizer and text-to-speech are used when the
+  headunit has them (the K2401 has neither, so it needs ElevenLabs for voice). Music and recitation pause while
+  TANYA listens and answers, then resume.
+- API keys are encrypted with an Android Keystore key and are only sent to the provider you configured.
+
+**Settings (PENGATURAN)**
+- **Launcher:** make KlikDash the home screen or switch back to the stock launcher, Hijri date correction,
+  reset the home tiles, open the Android settings, and **check for updates**.
+- **Power saver (HEMAT DAYA):** lists third-party apps, with the ones running in the background now at the top,
+  and blocks each one from running in the background with a single tap. The apps stay installed and still open
+  normally. System apps, Maps, Waze and Zlink are never listed. Needs USB debugging on.
+- **AI assistant:** AI profiles, ElevenLabs key, voice and model, and the answer voice.
+- **Updates** come from this repo's GitHub Releases. The downloaded APK is only installed if its package name,
+  version and signing certificate match the installed KlikDash. On NWD firmware it installs by itself and
+  KlikDash reopens; elsewhere Android asks you to confirm.
 
 **Automatic tweaks on startup** (see [Firmware-specific behaviour](#firmware-specific-behaviour))
 - ksmd is turned off on every boot.
@@ -91,7 +116,7 @@ without Gradle. The app's own interface is in Indonesian.
 
 ## Supported devices
 
-KlikDash needs **Android 10 or newer** and is laid out for a **1280×720 landscape** screen. The
+KlikDash needs **Android 10 or newer** and is designed for a **1280×720 landscape** screen. The
 headunit-specific parts (default launcher, sleep/wake, Zlink, ksmd) target NWD firmware.
 
 | Device | Screen | Android | Status |
@@ -99,7 +124,7 @@ headunit-specific parts (default launcher, sleep/wake, Zlink, ksmd) target NWD f
 | NWD K2401 (Allwinner sun50iw10) | 1280×720 | 10 | ✅ tested on a real device |
 | Other headunits with NWD firmware | 1280×720 | 10+ | ⚠️ should work, not tested |
 | Other Android headunits (FYT, MTK, Rockchip, …) | 1280×720 | 10+ | ⚠️ launcher, prayer times and Quran should work; NWD-specific tweaks do not apply |
-| Other screen sizes or portrait screens | – | 10+ | ❌ not laid out for them yet |
+| Other screen sizes or portrait screens | 800×480 and up | 10+ | ⚠️ the layout adapts (checked on an emulator at several sizes), not tested on a real device |
 
 Zlink was used with wireless CarPlay on an iPhone; Android Auto has not been tested. Reports from other headunits are
 welcome: please open an issue with the model, screen size and Android version.
@@ -113,14 +138,19 @@ welcome: please open an issue with the model, screen size and Android version.
    `adb install klikdash-<version>.apk`.
 3. Make it the home app: open KlikDash and tap the yellow **JADIKAN TAMPILAN UTAMA** button. On NWD
    firmware it sets the launcher itself (needs USB debugging on); elsewhere it opens the *Default home app*
-   setting. **LAUNCHER BAWAAN** on the All apps page switches back. Manual alternative over ADB:
+   setting. **Settings › Launcher › LAUNCHER BAWAAN** switches back. Manual alternative over ADB:
    ```bash
    adb shell setprop persist.nwd.launcher.default com.klikdash.app
    adb shell cmd package set-home-activity com.klikdash.app/.HomeActivity
    ```
 4. Allow location when asked (for prayer times).
 5. With internet on, open **Al-Qur'an** once and tap **UNDUH TEKS** to download the text.
-6. Go through the [test-before-you-drive checklist](#disclaimer) with the car parked.
+6. Optional, for the voice assistant: in **Settings › Asisten AI**, add a Claude or OpenAI-compatible profile with
+   your API key, and an ElevenLabs API key (the default Indonesian voice is set for you).
+7. Go through the [test-before-you-drive checklist](#disclaimer) with the car parked.
+
+**Updating:** from 1.3.0 on, use **Settings › Launcher › CEK UPDATE**. Older versions: install the new APK over
+the old one; settings and downloaded audio are kept.
 
 ## Structure
 
@@ -136,7 +166,16 @@ klikdash/
 │   ├── QuranService.java     background recitation player
 │   ├── QuranData.java        loader for assets/quran.txt
 │   ├── DzikirActivity.java   morning & evening dhikr with a guided counter
-│   ├── PowerActivity.java    power saver: block apps from running in the background
+│   ├── SettingsActivity.java settings with tabs: launcher, power saver, AI assistant
+│   ├── AiPanel.java          AI assistant tab: profiles, model, ElevenLabs voice & model pickers
+│   ├── Updater.java          update check from GitHub Releases, signature check, install
+│   ├── HomeSwitch.java       make KlikDash the home screen / back to the stock launcher
+│   ├── PowerPanel.java       power saver tab: block apps from running in the background
+│   ├── AskActivity.java      TANYA tile: voice assistant for car commands
+│   ├── AiClient.java         AI tool-use loop (Claude Messages API / OpenAI-compatible)
+│   ├── AiTools.java          car commands the AI may run (open app, navigate, murattal, volume…)
+│   ├── AiStore.java          AI profiles; API keys encrypted with Android Keystore
+│   ├── AiVoice.java          speech: ElevenLabs or Android TTS, ElevenLabs Scribe fallback
 │   └── Tweaks.java           system commands through local ADB (ksmd, hide Zlink, launcher, appops)
 ├── res/                      theme, vector icons
 ├── assets/
@@ -230,10 +269,11 @@ replaces the home screen, and the optional power saver only stops apps you pick 
 
 | Change | When | How to undo it |
 |---|---|---|
-| Default launcher `persist.nwd.launcher.default=com.klikdash.app` (NWD) and HOME preference | When you tap **JADIKAN TAMPILAN UTAMA** | **LAUNCHER BAWAAN** on the All apps page, or `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
+| Default launcher `persist.nwd.launcher.default=com.klikdash.app` (NWD) and HOME preference | When you tap **JADIKAN TAMPILAN UTAMA** | **Settings › Launcher › LAUNCHER BAWAAN**, or `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
 | ksmd turned off | Every boot, while KlikDash is the home screen (needs ADB on) | Switch back to the stock launcher or uninstall KlikDash, then reboot |
 | Zlink sent back to home when it opens by itself | First 3 minutes after boot or wake-up | Same as above |
-| Apps blocked from running in the background (`appops RUN_ANY_IN_BACKGROUND/RUN_IN_BACKGROUND ignore`) | Only for apps you switch on in **HEMAT DAYA** | Tap the app again, or **KEMBALIKAN SEMUA** |
+| Apps blocked from running in the background (`appops RUN_ANY_IN_BACKGROUND/RUN_IN_BACKGROUND ignore`) | Only for apps you switch on in **HEMAT DAYA**, or ask TANYA to | Tap the app again, or **KEMBALIKAN SEMUA** |
+| KlikDash updated with `pm install` | Only when you tap **Unduh & pasang** in Settings | Install an older APK with `adb install -r -d` |
 
 The old NWD launcher is **not removed**. Its process stays because it also handles car info from the CAN bus.
 
@@ -256,6 +296,10 @@ The old NWD launcher is **not removed**. Its process stays because it also handl
 
 ## Notes & limitations
 
+- **Voice assistant privacy and cost.** What you say is sent to ElevenLabs to be transcribed, and the text, with
+  the list of installed app names, the current time and, when a command needs it, the location, goes to the AI
+  provider of the active profile. Usage is billed to your own accounts. Nothing goes through a KlikDash server.
+  The AI can be wrong: check what it did, and do not rely on it for anything safety-critical.
 - **Security.** Enabled ADB over WiFi gives full access to the headunit. Only connect the headunit to a
   private network (such as your own phone's hotspot), never to public WiFi.
 - **The city name is not detected automatically**, because the geocoder on this device returns no results.
@@ -290,7 +334,8 @@ The old NWD launcher is **not removed**. Its process stays because it also handl
 
 - Changing the default launcher and system settings is not supported by the headunit maker and may affect
   your warranty. Every change can be undone (see [Changes made on the headunit](#changes-made-on-the-headunit)).
-- **Do not operate the screen while driving.** Use the steering-wheel buttons, or stop safely first.
+- **Do not operate the screen while driving.** Use the steering-wheel buttons, or stop safely first. TANYA
+  still needs a tap to start listening; keep it to short commands and keep your eyes on the road.
 - Prayer times are calculated and may differ by a minute or so from official schedules; follow your local
   mosque or authority.
 - The Quran text and translation are not included; check the text you build against an official mushaf.
@@ -326,4 +371,5 @@ done
   verses from [Tanzil](https://tanzil.net) (CC BY 3.0). Rebuild with
   `node tools/build_dzikir.mjs <klikband>/src/common/dhikrmorningevening.js assets/dzikir.json`.
 
-This project is not affiliated with NWD, Zjinnova (Zlink), Apple, Google, or Kemenag RI.
+This project is not affiliated with NWD, Zjinnova (Zlink), Apple, Google, Anthropic, OpenAI, ElevenLabs, or
+Kemenag RI.

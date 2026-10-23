@@ -42,7 +42,8 @@ public class QuranService extends Service
 
     static final String ACTION_PLAY = "com.klikdash.app.quran.PLAY", ACTION_TOGGLE = "com.klikdash.app.quran.TOGGLE",
             ACTION_NEXT = "com.klikdash.app.quran.NEXT", ACTION_PREV = "com.klikdash.app.quran.PREV",
-            ACTION_STOP = "com.klikdash.app.quran.STOP", ACTION_DOWNLOAD = "com.klikdash.app.quran.DOWNLOAD";
+            ACTION_STOP = "com.klikdash.app.quran.STOP", ACTION_PAUSE = "com.klikdash.app.quran.PAUSE",
+            ACTION_RESUME = "com.klikdash.app.quran.RESUME", ACTION_DOWNLOAD = "com.klikdash.app.quran.DOWNLOAD";
 
     /** LANJUT: terus ke surah berikutnya; SURAH/AYAT: ulangi. */
     static final int MODE_CONTINUE = 0, MODE_REPEAT_SURAH = 1, MODE_REPEAT_AYAH = 2;
@@ -140,8 +141,8 @@ public class QuranService extends Service
         session = new MediaSession(this, "klikdash-quran");
         session.setCallback(new MediaSession.Callback() {
             @Override public void onPlay() { resume(); }
-            @Override public void onPause() { pause(); }
-            @Override public void onStop() { pause(); }
+            @Override public void onPause() { userPause(); }
+            @Override public void onStop() { userPause(); }
             @Override public void onSkipToNext() { step(1); }
             @Override public void onSkipToPrevious() { step(-1); }
         });
@@ -161,7 +162,12 @@ public class QuranService extends Service
         if (ACTION_PLAY.equals(a)) {
             start(i.getIntExtra("s", surah), i.getIntExtra("a", 1), true);
         } else if (ACTION_TOGGLE.equals(a)) {
-            if (playing) pause(); else resume();
+            if (playing || resumeOnGain) userPause(); else resume();
+        } else if (ACTION_PAUSE.equals(a)) {
+            userPause();
+        } else if (ACTION_RESUME.equals(a)) {
+            resumeOnGain = true; // bila asisten sedang memegang audio, lanjut begitu ia selesai bicara
+            resume();
         } else if (ACTION_NEXT.equals(a)) {
             step(1);
         } else if (ACTION_PREV.equals(a)) {
@@ -278,6 +284,12 @@ public class QuranService extends Service
         } else if (player == null) {
             start(surah, ayah, ayah == 1);
         }
+    }
+
+    /** Dijeda pengguna (atau asisten atas permintaannya): jangan lanjut sendiri saat audio fokus kembali. */
+    void userPause() {
+        resumeOnGain = false;
+        pause();
     }
 
     void pause() {

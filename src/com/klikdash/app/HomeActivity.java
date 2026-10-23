@@ -77,8 +77,8 @@ public class HomeActivity extends Activity {
             {"com.klikdash.app/.DzikirActivity", "DZIKIR"},
             {"com.klikdash.app/.QuranActivity", "AL-QUR'AN"},
             {"com.nwd.carkit360camera/.home_horizontalActivity", "KAMERA 360"},
-            {"com.android.car.setting/.home_horizontalActivity", "PENGATURAN"},
-            {null, null}, // slot bebas: ketuk untuk memilih aplikasi (Radio tetap ada di Semua)
+            {"com.android.car.setting/.home_horizontalActivity", "SISTEM"},
+            {"com.klikdash.app/.AskActivity", "TANYA"}, // asisten AI suara; Radio tetap ada di Semua
     };
     static final int SLOTS = DEFAULTS.length;
     /** Grid home: slot + ubin "Semua"; jumlah kolom dipilih dari ukuran layar (lihat measureScreen). */
@@ -267,6 +267,7 @@ public class HomeActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         QuranService.listeners.add(onQuran);
+        loadSlots(); // bisa diatur ulang dari Pengaturan
         onQuran.run();
         updateTime();
         prayerView.startTicking();
@@ -282,13 +283,15 @@ public class HomeActivity extends Activity {
             "JUMADIL AKHIR", "RAJAB", "SYA'BAN", "RAMADHAN", "SYAWAL", "DZULQA'DAH", "DZULHIJJAH"};
 
     /**
-     * Umm al-Qura (ICU bawaan Android), cocok dengan kalender Kemenag untuk Oktober 2026. Koreksi ±2 hari bisa
-     * diatur dengan mengetuk tanggalnya, untuk jaga-jaga bila hasil rukyat berbeda.
+     * Umm al-Qura (ICU bawaan Android), cocok dengan kalender Kemenag untuk Oktober 2026. Koreksi ±2 hari diatur
+     * di Pengaturan (atau ketuk tanggalnya), untuk jaga-jaga bila hasil rukyat berbeda.
      */
-    String hijriText(long now) {
+    String hijriText(long now) { return hijriText(now, prefs.getInt("hijriOffset", 0)); }
+
+    static String hijriText(long now, int offsetDays) {
         android.icu.util.IslamicCalendar c = new android.icu.util.IslamicCalendar();
         c.setCalculationType(android.icu.util.IslamicCalendar.CalculationType.ISLAMIC_UMALQURA);
-        c.setTimeInMillis(now + prefs.getInt("hijriOffset", 0) * 86_400_000L);
+        c.setTimeInMillis(now + offsetDays * 86_400_000L);
         return c.get(android.icu.util.Calendar.DAY_OF_MONTH) + " " + HIJRI_MONTHS[c.get(android.icu.util.Calendar.MONTH)]
                 + " " + c.get(android.icu.util.Calendar.YEAR) + " H";
     }
@@ -300,25 +303,13 @@ public class HomeActivity extends Activity {
         return pray == null || min < pray[2];
     }
 
-    void adjustHijri() {
-        final int[] values = {-2, -1, 0, 1, 2};
-        String[] labels = {"−2 hari", "−1 hari", "Otomatis (Umm al-Qura)", "+1 hari", "+2 hari"};
-        int cur = prefs.getInt("hijriOffset", 0);
-        new android.app.AlertDialog.Builder(this)
-                .setTitle("Koreksi tanggal Hijriah")
-                .setSingleChoiceItems(labels, cur + 2, (d, which) -> {
-                    prefs.edit().putInt("hijriOffset", values[which]).apply();
-                    updateTime();
-                    d.dismiss();
-                })
-                .setNegativeButton("Tutup", null)
-                .show();
-    }
-
     // ---------------------------------------------------------------- kecepatan (GPS)
 
     /** Kecepatan dari GPS; headunit ini tidak menyediakan kecepatan dari CAN (can_config_speed=0). */
     long speedAt;
+    /** Kecepatan terakhir untuk asisten AI (alat car_status); basi bila lastKmhAt lebih dari 10 detik lalu. */
+    static volatile int lastKmh;
+    static volatile long lastKmhAt;
 
     final LocationListener speedRx = new LocationListener() {
         @Override public void onLocationChanged(Location l) {
@@ -326,6 +317,8 @@ public class HomeActivity extends Activity {
             speedAt = SystemClock.elapsedRealtime();
             int kmh = Math.round(l.getSpeed() * 3.6f);
             if (kmh < 3) kmh = 0; // diam: abaikan goyangan GPS
+            lastKmh = kmh;
+            lastKmhAt = speedAt;
             speed.setText(String.valueOf(kmh));
             speed.setTextColor(kmh > 100 ? AMBER : TEXT); // di atas batas tol
         }
@@ -367,98 +360,15 @@ public class HomeActivity extends Activity {
     // ---------------------------------------------------------------- tampilan utama (launcher default)
 
     /** Firmware NWD memilih launcher lewat property ini dan mengabaikan pilihan home Android. */
-    static final String NWD_PROP = "persist.nwd.launcher.default";
+    Button makeDefault;
 
-    Button makeDefault, restore;
-
-    static String getprop(String key) {
-        try {
-            Process p = Runtime.getRuntime().exec(new String[]{"getprop", key});
-            try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
-                String s = r.readLine();
-                return s == null ? "" : s.trim();
-            }
-        } catch (Exception e) {
-            return "";
-        }
-    }
-
-    boolean isNwd() {
-        return "true".equals(getprop("ro.nwd.start.launcher.by.fw")) || !getprop(NWD_PROP).isEmpty();
-    }
-
-    boolean isDefaultHome() {
-        if (isNwd()) return getPackageName().equals(getprop(NWD_PROP));
-        ResolveInfo r = getPackageManager().resolveActivity(
-                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY);
-        return r != null && r.activityInfo != null && getPackageName().equals(r.activityInfo.packageName);
+    void openSettings() {
+        userLaunch = true;
+        startActivity(new Intent(this, SettingsActivity.class));
     }
 
     void refreshDefaultHome() {
-        boolean def = isDefaultHome();
-        makeDefault.setVisibility(def ? View.GONE : View.VISIBLE);
-        restore.setVisibility(def ? View.VISIBLE : View.GONE);
-    }
-
-    /** NWD: atur property lewat ADB perangkat sendiri (tanpa komputer). Lainnya: buka pengaturan "Aplikasi home". */
-    void makeDefaultHome() {
-        if (!isNwd()) {
-            openHomeSettings();
-            return;
-        }
-        String cur = getprop(NWD_PROP), me = getPackageName();
-        if (!cur.isEmpty() && !cur.equals(me)) prefs.edit().putString("nwdPrev", cur).apply();
-        Tweaks.shellAsync("setprop " + NWD_PROP + " " + me + "; cmd package set-home-activity " + me + "/.HomeActivity",
-                ok -> runOnUiThread(() -> {
-                    refreshDefaultHome();
-                    Toast.makeText(this, isDefaultHome() ? "KlikDash sekarang tampilan utama"
-                            : "Belum berhasil. Aktifkan USB debugging di Opsi pengembang, lalu coba lagi.",
-                            Toast.LENGTH_LONG).show();
-                }));
-    }
-
-    void restoreStockLauncher() {
-        if (!isNwd()) {
-            openHomeSettings();
-            return;
-        }
-        new android.app.AlertDialog.Builder(this)
-                .setMessage("Kembali ke launcher bawaan? KlikDash tetap terpasang dan bisa dijadikan tampilan utama lagi "
-                        + "dari tombol di home-nya.")
-                .setNegativeButton("Batal", null)
-                .setPositiveButton("Kembali", (dlg, w) -> {
-                    String prev = prefs.getString("nwdPrev", "com.android.launcher");
-                    ComponentName stock = stockHome(prev);
-                    Tweaks.shellAsync("setprop " + NWD_PROP + " " + prev
-                                    + (stock != null ? "; cmd package set-home-activity " + stock.flattenToShortString() : "")
-                                    + "; input keyevent KEYCODE_HOME",
-                            ok -> {
-                                if (!ok) runOnUiThread(() -> Toast.makeText(this,
-                                        "Belum berhasil. Aktifkan USB debugging di Opsi pengembang, lalu coba lagi.",
-                                        Toast.LENGTH_LONG).show());
-                            });
-                })
-                .show();
-    }
-
-    /** Activity HOME bawaan: milik paket {@code pkg}, atau launcher lain selain KlikDash. */
-    ComponentName stockHome(String pkg) {
-        ComponentName other = null;
-        for (ResolveInfo r : getPackageManager().queryIntentActivities(
-                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)) {
-            ComponentName cn = new ComponentName(r.activityInfo.packageName, r.activityInfo.name);
-            if (cn.getPackageName().equals(pkg)) return cn;
-            if (other == null && !cn.getPackageName().equals(getPackageName())) other = cn;
-        }
-        return other;
-    }
-
-    void openHomeSettings() {
-        try {
-            startActivity(new Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        } catch (Exception e) {
-            startActivity(new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        }
+        makeDefault.setVisibility(HomeSwitch.isDefault(this) ? View.GONE : View.VISIBLE);
     }
 
     @Override protected void onPause() {
@@ -540,6 +450,12 @@ public class HomeActivity extends Activity {
             } else {
                 slotCn[i] = s.isEmpty() ? null : ComponentName.unflattenFromString(s); // "" = slot kosong
                 slotLabel[i] = prefs.getString("l" + i, null);
+                // v1.3: ubin pengaturan mobil berganti nama jadi SISTEM (Pengaturan kini milik KlikDash).
+                if ("PENGATURAN".equals(slotLabel[i]) && slotCn[i] != null
+                        && "com.android.car.setting".equals(slotCn[i].getPackageName())) {
+                    slotLabel[i] = "SISTEM";
+                    prefs.edit().putString("l" + i, "SISTEM").apply();
+                }
             }
         }
     }
@@ -776,11 +692,18 @@ public class HomeActivity extends Activity {
         temp = text("", fMonoBold, 12, DIM);
         temp.setLetterSpacing(0.15f);
         top.addView(temp);
+        // Pengaturan KlikDash (tampilan, Hemat Daya, asisten AI). Kotak sentuh 48dp walau ikonnya kecil.
+        TextView gear = text("⚙", fMonoBold, 18, DIM);
+        gear.setGravity(Gravity.CENTER);
+        gear.setContentDescription("Pengaturan KlikDash");
+        gear.setOnClickListener(v -> openSettings());
+        top.addView(gear, new LinearLayout.LayoutParams(px(48), px(48)));
+        top.setGravity(Gravity.CENTER_VERTICAL);
         left.addView(top);
 
         // Muncul hanya bila KlikDash belum jadi tampilan utama (lihat refreshDefaultHome).
         makeDefault = new Button("JADIKAN TAMPILAN UTAMA", true);
-        makeDefault.setOnClickListener(v -> makeDefaultHome());
+        makeDefault.setOnClickListener(v -> HomeSwitch.makeDefault(this, prefs, this::refreshDefaultHome));
         makeDefault.setVisibility(View.GONE);
         LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(MATCH, px(48));
         ml.topMargin = px(14);
@@ -828,7 +751,7 @@ public class HomeActivity extends Activity {
 
         hijri = text("", fMono, 13, DIM);
         hijri.setLetterSpacing(0.2f);
-        hijri.setOnClickListener(v -> adjustHijri());
+        hijri.setOnClickListener(v -> openSettings());
         LinearLayout.LayoutParams hl = new LinearLayout.LayoutParams(WRAP, WRAP);
         hl.topMargin = px(8);
         left.addView(hijri, hl);
@@ -898,18 +821,11 @@ public class HomeActivity extends Activity {
         if (narrow) drawerCount.setVisibility(View.GONE);
         head.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
 
-        Button power = new Button(wDp < 900 ? "HEMAT" : "HEMAT DAYA", false);
-        power.setOnClickListener(v -> startActivity(new Intent(this, PowerActivity.class)));
-        LinearLayout.LayoutParams pwl = new LinearLayout.LayoutParams(WRAP, px(56));
-        pwl.rightMargin = px(12);
-        head.addView(power, pwl);
-
-        restore = new Button(wDp < 900 ? "BAWAAN" : "LAUNCHER BAWAAN", false);
-        restore.setOnClickListener(v -> restoreStockLauncher());
-        restore.setVisibility(View.GONE);
-        LinearLayout.LayoutParams rsl = new LinearLayout.LayoutParams(WRAP, px(56));
-        rsl.rightMargin = px(12);
-        head.addView(restore, rsl);
+        Button settings = new Button(wDp < 900 ? "⚙" : "⚙  PENGATURAN", false);
+        settings.setOnClickListener(v -> openSettings());
+        LinearLayout.LayoutParams stl = new LinearLayout.LayoutParams(WRAP, px(56));
+        stl.rightMargin = px(12);
+        head.addView(settings, stl);
 
         Button close = new Button(wDp < 900 ? "✕" : "TUTUP  ✕", false);
         close.setOnClickListener(v -> closeDrawer());
@@ -1146,6 +1062,7 @@ public class HomeActivity extends Activity {
                 if (DzikirActivity.class.getName().equals(a.cn.getClassName())) {
                     sub = dzikirPagi() ? "PAGI" : "PETANG";
                 }
+                if (AskActivity.class.getName().equals(a.cn.getClassName())) sub = "ASISTEN AI";
                 if (QuranActivity.class.getName().equals(a.cn.getClassName()) && QuranService.playing) {
                     sub = String.format(Locale.US, "▶ %d : %d", QuranService.surah, QuranService.ayah);
                 }

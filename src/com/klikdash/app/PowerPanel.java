@@ -1,17 +1,13 @@
 package com.klikdash.app;
 
-import android.app.Activity;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
-import android.os.Bundle;
 import android.text.TextPaint;
 import android.text.TextUtils;
-import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -26,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 import static com.klikdash.app.HomeActivity.AMBER;
@@ -37,15 +32,15 @@ import static com.klikdash.app.HomeActivity.INK;
 import static com.klikdash.app.HomeActivity.LINE;
 import static com.klikdash.app.HomeActivity.PANEL;
 import static com.klikdash.app.HomeActivity.TEXT;
+import static com.klikdash.app.SettingsActivity.ID;
+import static com.klikdash.app.SettingsActivity.MATCH;
+import static com.klikdash.app.SettingsActivity.WRAP;
 
 /**
- * Hemat Daya: larang aplikasi pihak ketiga berjalan di latar (appops RUN_ANY_IN_BACKGROUND/RUN_IN_BACKGROUND
+ * Tab Hemat Daya: larang aplikasi pihak ketiga berjalan di latar (appops RUN_ANY_IN_BACKGROUND/RUN_IN_BACKGROUND
  * = ignore). Aplikasinya tidak dihapus dan tetap bisa dibuka. Perintah dijalankan lewat ADB perangkat sendiri.
  */
-public class PowerActivity extends Activity {
-
-    static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT, WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
-    static final Locale ID = new Locale("id", "ID");
+final class PowerPanel {
 
     /** Tidak pernah ditampilkan: dibutuhkan mobil atau navigasi tetap jalan di latar. */
     static final Set<String> PROTECTED = new HashSet<>(Arrays.asList(
@@ -58,68 +53,42 @@ public class PowerActivity extends Activity {
         boolean restricted, running;
     }
 
-    float dp, sp;
-    Typeface fHeavy, fBold, fMono, fMonoBold, fSerif;
+    final SettingsActivity a;
+    final View view;
     final List<Item> items = new ArrayList<>();
-    ListView list;
-    Adapter adapter;
-    TextView count, message;
-    boolean busy, narrow;
+    final ListView list;
+    final Adapter adapter;
+    final TextView count, message;
+    boolean busy;
 
-    @Override protected void onCreate(Bundle b) {
-        super.onCreate(b);
-        dp = getResources().getDisplayMetrics().density;
-        sp = getResources().getDisplayMetrics().scaledDensity;
-        fHeavy = font("display.ttf", "'opsz' 72, 'wght' 800");
-        fBold = font("display.ttf", "'opsz' 36, 'wght' 700");
-        fMono = font("mono.ttf", "'wdth' 100, 'wght' 400");
-        fMonoBold = font("mono.ttf", "'wdth' 100, 'wght' 700");
-        fSerif = font("serif.ttf", null);
+    PowerPanel(SettingsActivity a) {
+        this.a = a;
+        LinearLayout root = a.column();
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(BG);
-        root.setFitsSystemWindows(true);
-        root.setPadding(px(24), px(24), px(24), 0);
-
-        LinearLayout head = new LinearLayout(this);
+        LinearLayout head = new LinearLayout(a);
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        head.addView(text("HEMAT DAYA", fHeavy, 40, TEXT));
-        count = text("", fMono, 13, AMBER);
-        count.setLetterSpacing(0.2f);
-        LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(WRAP, WRAP);
-        cl.leftMargin = px(20);
-        head.addView(count, cl);
-        head.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
-        float wDp = getResources().getDisplayMetrics().widthPixels / dp;
-        narrow = wDp < 900;
-        Key reset = new Key(narrow ? "KEMBALIKAN" : "KEMBALIKAN SEMUA", false, this::restoreAll);
-        LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(WRAP, px(56));
-        rl.rightMargin = px(12);
-        head.addView(reset, rl);
-        head.addView(new Key(narrow ? "✕" : "TUTUP  ✕", false, this::finish), new LinearLayout.LayoutParams(WRAP, px(56)));
-        if (narrow) count.setVisibility(View.GONE);
-        root.addView(head, new LinearLayout.LayoutParams(MATCH, px(64)));
+        count = a.label("");
+        head.addView(count, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        head.addView(a.key(a.narrow ? "KEMBALIKAN" : "KEMBALIKAN SEMUA", false, this::restoreAll),
+                new LinearLayout.LayoutParams(WRAP, a.px(52)));
+        LinearLayout.LayoutParams hl = new LinearLayout.LayoutParams(MATCH, WRAP);
+        hl.topMargin = a.px(20);
+        root.addView(head, hl);
 
-        TextView sub = text("Larang aplikasi berjalan diam-diam di latar supaya headunit lebih ringan dan dingin. "
+        TextView sub = a.paragraph("Larang aplikasi berjalan diam-diam di latar supaya headunit lebih ringan dan dingin. "
                 + "Aplikasinya tetap terpasang dan bisa dibuka seperti biasa. Aplikasi sistem, navigasi, dan Zlink "
-                + "tidak ditampilkan.", fSerif, 16, 0xFFD9D3C5);
-        sub.setSingleLine(false);
-        sub.setLineSpacing(0, 1.25f);
+                + "tidak ditampilkan.");
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(MATCH, WRAP);
-        sl.topMargin = px(12);
-        sl.bottomMargin = px(16);
+        sl.topMargin = a.px(12);
+        sl.bottomMargin = a.px(16);
         root.addView(sub, sl);
+        root.addView(a.rule(), a.ruleParams(true, 0, 0));
 
-        View rule = new View(this);
-        rule.setBackgroundColor(LINE);
-        root.addView(rule, new LinearLayout.LayoutParams(MATCH, px(1)));
-
-        FrameLayout body = new FrameLayout(this);
-        list = new ListView(this);
+        FrameLayout body = new FrameLayout(a);
+        list = new ListView(a);
         list.setDivider(new ColorDrawable(LINE));
-        list.setDividerHeight(px(1));
+        list.setDividerHeight(a.px(1));
         list.setSelector(new ColorDrawable(0));
         list.setOverScrollMode(View.OVER_SCROLL_NEVER);
         list.setVerticalScrollBarEnabled(false);
@@ -127,14 +96,14 @@ public class PowerActivity extends Activity {
         list.setAdapter(adapter);
         list.setOnItemClickListener((p, v, pos, id) -> toggle(items.get(pos)));
         body.addView(list, MATCH, MATCH);
-        message = text("", fMonoBold, 14, AMBER);
+        message = a.text("", a.fMonoBold, 14, AMBER);
         message.setLetterSpacing(0.25f);
         message.setGravity(Gravity.CENTER);
         message.setSingleLine(false);
         message.setBackgroundColor(BG);
         body.addView(message, MATCH, MATCH);
         root.addView(body, new LinearLayout.LayoutParams(MATCH, 0, 1f));
-        setContentView(root);
+        view = root;
 
         refresh();
     }
@@ -146,11 +115,11 @@ public class PowerActivity extends Activity {
         busy = true;
         showMessage("MEMERIKSA APLIKASI…");
         new Thread(() -> {
-            PackageManager pm = getPackageManager();
+            PackageManager pm = a.getPackageManager();
             List<Item> found = new ArrayList<>();
             for (ApplicationInfo ai : pm.getInstalledApplications(0)) {
                 if ((ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0) continue;
-                if (ai.packageName.equals(getPackageName()) || PROTECTED.contains(ai.packageName)) continue;
+                if (ai.packageName.equals(a.getPackageName()) || PROTECTED.contains(ai.packageName)) continue;
                 if (ai.packageName.contains(".nwd.")) continue;
                 Item it = new Item();
                 it.pkg = ai.packageName;
@@ -167,10 +136,10 @@ public class PowerActivity extends Activity {
             try {
                 out = found.isEmpty() ? "" : Tweaks.exec(cmd.toString());
             } catch (Exception e) {
-                runOnUiThread(() -> {
+                a.runOnUiThread(() -> {
                     busy = false;
                     showMessage("BUTUH USB DEBUGGING\n\nAktifkan di Pengaturan › Opsi pengembang › USB debugging,\n"
-                            + "lalu buka Hemat Daya lagi.");
+                            + "lalu buka tab Hemat Daya lagi.");
                 });
                 return;
             }
@@ -188,7 +157,7 @@ public class PowerActivity extends Activity {
                 int a = (x.running && !x.restricted) ? 0 : 1, c = (y.running && !y.restricted) ? 0 : 1;
                 return a != c ? a - c : x.label.compareToIgnoreCase(y.label);
             });
-            runOnUiThread(() -> {
+            a.runOnUiThread(() -> {
                 busy = false;
                 items.clear();
                 items.addAll(found);
@@ -228,7 +197,7 @@ public class PowerActivity extends Activity {
             try {
                 Tweaks.exec(cmd);
             } catch (Exception ignored) { }
-            runOnUiThread(this::refresh);
+            a.runOnUiThread(this::refresh);
         }, "power-apply").start();
     }
 
@@ -243,84 +212,6 @@ public class PowerActivity extends Activity {
         message.setVisibility(View.VISIBLE);
     }
 
-    // ---------------------------------------------------------------- helpers
-
-    Typeface font(String file, String axes) {
-        try {
-            Typeface.Builder b = new Typeface.Builder(getAssets(), file);
-            if (axes != null) b.setFontVariationSettings(axes);
-            Typeface t = b.build();
-            if (t != null) return t;
-        } catch (Exception ignored) { }
-        return Typeface.DEFAULT;
-    }
-
-    TextView text(String s, Typeface tf, float size, int color) {
-        TextView t = new TextView(this);
-        t.setText(s);
-        t.setTypeface(tf);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, size);
-        t.setTextColor(color);
-        t.setIncludeFontPadding(false);
-        t.setSingleLine(true);
-        return t;
-    }
-
-    int px(float v) { return Math.round(v * dp); }
-
-    float sp(float v) { return v * sp; }
-
-    // ---------------------------------------------------------------- views
-
-    /** Tombol teks; amber bila {@code on}. */
-    class Key extends View {
-        final String label;
-        final boolean on;
-        boolean down;
-        final Paint fill = new Paint(), stroke = new Paint(Paint.ANTI_ALIAS_FLAG), p = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-        Key(String label, boolean on, Runnable click) {
-            super(PowerActivity.this);
-            this.label = label;
-            setContentDescription(label); // pembaca layar & pengujian otomatis
-            this.on = on;
-            stroke.setStyle(Paint.Style.STROKE);
-            stroke.setStrokeWidth(px(1));
-            stroke.setColor(LINE);
-            p.setTypeface(fMonoBold);
-            p.setTextSize(sp(13));
-            p.setLetterSpacing(0.2f);
-            p.setTextAlign(Paint.Align.CENTER);
-            setClickable(true);
-            setOnClickListener(v -> click.run());
-        }
-
-        @Override protected void drawableStateChanged() {
-            super.drawableStateChanged();
-            if (isPressed() != down) { down = isPressed(); invalidate(); }
-        }
-
-        /** Lebar mengikuti teks bila tidak ditentukan pasti (WRAP), supaya muat di layar sempit. */
-        @Override protected void onMeasure(int wSpec, int hSpec) {
-            if (MeasureSpec.getMode(wSpec) == MeasureSpec.EXACTLY) { super.onMeasure(wSpec, hSpec); return; }
-            setMeasuredDimension(resolveSize(Math.round(p.measureText(label)) + px(36), wSpec),
-                    resolveSize(px(48), hSpec));
-        }
-
-        @Override protected void onDraw(Canvas c) {
-            int w = getWidth(), h = getHeight();
-            fill.setColor(down ? AMBER : on ? AMBER : PANEL);
-            c.drawRect(0, 0, w, h, fill);
-            if (!down && !on) {
-                float s = stroke.getStrokeWidth() / 2f;
-                c.drawRect(s, s, w - s, h - s, stroke);
-            }
-            p.setColor(down || on ? INK : TEXT);
-            Paint.FontMetrics fm = p.getFontMetrics();
-            c.drawText(label, w / 2f, h / 2f - (fm.ascent + fm.descent) / 2f, p);
-        }
-    }
-
     /** Satu baris aplikasi: ikon, nama, status, dan sakelar di kanan. Ketuk di mana saja untuk mengubah. */
     class Row extends View {
         Item item;
@@ -330,21 +221,21 @@ public class PowerActivity extends Activity {
                 sw = new TextPaint(Paint.ANTI_ALIAS_FLAG);
 
         Row() {
-            super(PowerActivity.this);
-            name.setTypeface(fBold);
-            name.setTextSize(sp(24));
+            super(a);
+            name.setTypeface(a.fBold);
+            name.setTextSize(a.sp(24));
             name.setLetterSpacing(0.03f);
-            status.setTypeface(fMono);
-            status.setTextSize(sp(10));
+            status.setTypeface(a.fMono);
+            status.setTextSize(a.sp(10));
             status.setLetterSpacing(0.15f);
-            sw.setTypeface(fMonoBold);
-            sw.setTextSize(sp(12));
+            sw.setTypeface(a.fMonoBold);
+            sw.setTextSize(a.sp(12));
             sw.setLetterSpacing(0.2f);
             sw.setTextAlign(Paint.Align.CENTER);
             stroke.setStyle(Paint.Style.STROKE);
-            stroke.setStrokeWidth(px(1));
+            stroke.setStrokeWidth(a.px(1));
             stroke.setColor(LINE);
-            setLayoutParams(new AbsListView.LayoutParams(MATCH, px(84)));
+            setLayoutParams(new AbsListView.LayoutParams(MATCH, a.px(84)));
         }
 
         @Override protected void drawableStateChanged() {
@@ -354,7 +245,7 @@ public class PowerActivity extends Activity {
 
         @Override protected void onDraw(Canvas c) {
             if (item == null) return;
-            int w = getWidth(), h = getHeight(), icon = px(48), x = px(16);
+            int w = getWidth(), h = getHeight(), icon = a.px(48), x = a.px(16);
             if (down) {
                 fill.setColor(PANEL);
                 c.drawRect(0, 0, w, h, fill);
@@ -362,7 +253,7 @@ public class PowerActivity extends Activity {
             item.icon.setBounds(x, (h - icon) / 2, x + icon, (h + icon) / 2);
             item.icon.draw(c);
 
-            int sww = narrow ? px(130) : px(180), swh = px(48), swx = w - px(16) - sww, swy = (h - swh) / 2;
+            int sww = a.narrow ? a.px(130) : a.px(180), swh = a.px(48), swx = w - a.px(16) - sww, swy = (h - swh) / 2;
             fill.setColor(item.restricted ? AMBER : PANEL);
             c.drawRect(swx, swy, swx + sww, swy + swh, fill);
             if (!item.restricted) {
@@ -373,15 +264,15 @@ public class PowerActivity extends Activity {
             Paint.FontMetrics fm = sw.getFontMetrics();
             c.drawText(item.restricted ? "DIBATASI" : "BATASI", swx + sww / 2f, h / 2f - (fm.ascent + fm.descent) / 2f, sw);
 
-            float tx = x + icon + px(20), avail = swx - tx - px(20);
+            float tx = x + icon + a.px(20), avail = swx - tx - a.px(20);
             name.setColor(TEXT);
             CharSequence n = TextUtils.ellipsize(item.label.toUpperCase(ID), name, avail, TextUtils.TruncateAt.END);
-            c.drawText(n, 0, n.length(), tx, px(40), name);
+            c.drawText(n, 0, n.length(), tx, a.px(40), name);
             String st = item.restricted ? "TIDAK BISA JALAN DI LATAR"
                     : item.running ? "SEDANG BERJALAN DI LATAR" : "BOLEH JALAN DI LATAR";
             status.setColor(item.running && !item.restricted ? AMBER : item.restricted ? DIM : FAINT);
             CharSequence ss = TextUtils.ellipsize(st + "  ·  " + item.pkg, status, avail, TextUtils.TruncateAt.END);
-            c.drawText(ss, 0, ss.length(), tx, px(62), status);
+            c.drawText(ss, 0, ss.length(), tx, a.px(62), status);
         }
     }
 
