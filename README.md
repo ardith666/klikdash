@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  A free, open-source lightweight launcher for the NWD K2401 Android car headunit (Allwinner, Android 10, 1280×720): an instrument-panel home screen that replaces the stock 3D animation, GPS-based prayer times with a live countdown, CPU temperature, rearrangeable shortcuts, an offline Quran with Mishary Alafasy recitation, and an optional voice assistant for car commands. No account needed.
+  A free, open-source lightweight launcher for Android car headunits (Android 7 or newer): an instrument-panel home screen that replaces the stock 3D animation, GPS-based prayer times with a live countdown, CPU temperature, rearrangeable shortcuts, an offline Quran with Mishary Alafasy recitation, and an optional voice assistant for car commands. No account needed. Developed and tested on an NWD K2401.
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
   <a href="https://github.com/ashafizullah/klikdash/releases"><img src="https://img.shields.io/github/downloads/ashafizullah/klikdash/total?color=1fa77a" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/ashafizullah/klikdash?color=blue" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/Android-7%2B-3DDC84?logo=android&logoColor=white" alt="Android 7+">
-  <img src="https://img.shields.io/badge/headunit-NWD%20K2401%20%C2%B7%201280%C3%97720-lightgrey" alt="Headunit NWD K2401, 1280x720">
+  <img src="https://img.shields.io/badge/tested%20on-NWD%20K2401%20%C2%B7%201280%C3%97720-lightgrey" alt="Tested on NWD K2401, 1280x720">
   <br>
   <img src="https://img.shields.io/badge/idle%20CPU-~0%25-FFB000" alt="Idle CPU around 0%">
   <img src="https://img.shields.io/badge/offline-100%25-FFB000" alt="Fully offline">
@@ -37,8 +37,9 @@
 
 ## About
 
-KlikDash replaces the stock NWD launcher, which renders a 3D animation nonstop (~40% CPU), with a static
-instrument-panel home screen (~0–1% CPU, ~30 MB RAM). Plain Java, no libraries. The app itself is in Indonesian.
+KlikDash replaces the headunit's stock launcher with a static instrument-panel home screen (~0–1% CPU,
+~30 MB RAM). Plain Java, no libraries. The app itself is in Indonesian. On the NWD K2401 it was built on, the
+stock launcher renders a 3D animation nonstop (~40% CPU).
 
 ## Features
 

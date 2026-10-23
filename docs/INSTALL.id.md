@@ -11,7 +11,7 @@ saat pertama kali memasang.
 
 ## Yang dibutuhkan
 
-- Headunit Android **10 atau lebih baru** dengan layar **1280×720** (dibuat untuk NWD K2401)
+- Headunit Android **7 atau lebih baru**, idealnya dengan layar **1280×720** (dikembangkan dan diuji di NWD K2401)
 - Flashdisk, atau cara lain untuk memindahkan file ke headunit
 - Internet sekali untuk mengunduh teks Al-Qur'an (±6 MB), dan untuk murattal surah yang ingin diputar
 

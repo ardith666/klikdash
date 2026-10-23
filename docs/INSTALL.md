@@ -13,7 +13,7 @@ phone's hotspot) during the first setup.
 
 ## What you need
 
-- An Android **10 or newer** headunit with a **1280×720** screen (made for the NWD K2401)
+- An Android **7 or newer** headunit, ideally with a **1280×720** screen (developed and tested on the NWD K2401)
 - A USB stick, or another way to copy a file to the headunit
 - Internet once, to download the Quran text (~6 MB), and for the recitation of any surah you want to play
 

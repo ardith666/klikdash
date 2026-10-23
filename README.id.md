@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  Launcher ringan, gratis, dan open source untuk headunit Android mobil NWD K2401 (Allwinner, Android 10, 1280×720): home bergaya panel instrumen pengganti animasi 3D bawaan, jadwal sholat dari GPS dengan hitung mundur, suhu CPU, pintasan yang bisa disusun, Al-Qur'an offline dengan murattal Mishary Alafasy, dan asisten suara opsional untuk perintah mobil. Tanpa akun.
+  Launcher ringan, gratis, dan open source untuk headunit Android mobil (Android 7 atau lebih baru): home bergaya panel instrumen pengganti animasi 3D bawaan, jadwal sholat dari GPS dengan hitung mundur, suhu CPU, pintasan yang bisa disusun, Al-Qur'an offline dengan murattal Mishary Alafasy, dan asisten suara opsional untuk perintah mobil. Tanpa akun. Dikembangkan dan diuji di NWD K2401.
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
   <a href="https://github.com/ashafizullah/klikdash/releases"><img src="https://img.shields.io/github/downloads/ashafizullah/klikdash/total?color=1fa77a" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/ashafizullah/klikdash?color=blue" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/Android-7%2B-3DDC84?logo=android&logoColor=white" alt="Android 7+">
-  <img src="https://img.shields.io/badge/headunit-NWD%20K2401%20%C2%B7%201280%C3%97720-lightgrey" alt="Headunit NWD K2401, 1280x720">
+  <img src="https://img.shields.io/badge/diuji%20di-NWD%20K2401%20%C2%B7%201280%C3%97720-lightgrey" alt="Diuji di NWD K2401, 1280x720">
   <br>
   <img src="https://img.shields.io/badge/CPU%20saat%20diam-~0%25-FFB000" alt="CPU saat diam sekitar 0%">
   <img src="https://img.shields.io/badge/offline-100%25-FFB000" alt="Sepenuhnya offline">
@@ -37,8 +37,9 @@
 
 ## Tentang
 
-KlikDash menggantikan launcher bawaan NWD yang terus merender animasi 3D (~40% CPU) dengan home statis bergaya
-panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa library.
+KlikDash menggantikan launcher bawaan headunit dengan home statis bergaya panel instrumen (~0–1% CPU, ~30 MB RAM).
+Ditulis dengan Java murni tanpa library. Di NWD K2401 tempat KlikDash dikembangkan, launcher bawaannya terus
+merender animasi 3D (~40% CPU).
 
 ## Fitur
 
