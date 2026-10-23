@@ -191,6 +191,14 @@ public class SettingsActivity extends Activity {
                         : key("JADIKAN UTAMA", true, () -> HomeSwitch.makeDefault(this, prefs,
                         () -> show(TAB_LAUNCHER, true)))));
 
+        boolean speedo = prefs.getBoolean("speedometer", false);
+        list.addView(row("SPEEDOMETER GPS",
+                "Tampilkan gauge kecepatan GPS di slot kecepatan. Default nonaktif agar tampilan bawaan tidak berubah.",
+                key(speedo ? "AKTIF" : "NONAKTIF", speedo, () -> {
+                    prefs.edit().putBoolean("speedometer", !speedo).apply();
+                    show(TAB_LAUNCHER, true);
+                })));
+
         int off = prefs.getInt("hijriOffset", 0);
         Key[] shift = new Key[5];
         for (int i = 0; i < 5; i++) {

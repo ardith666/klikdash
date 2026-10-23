@@ -28,6 +28,9 @@ import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.text.TextPaint;
@@ -266,6 +269,10 @@ public class HomeActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        if (prefs.getBoolean("speedometer", false) != speedGaugeEnabled) {
+            recreate();
+            return;
+        }
         QuranService.listeners.add(onQuran);
         loadSlots(); // bisa diatur ulang dari Pengaturan
         onQuran.run();
@@ -319,8 +326,14 @@ public class HomeActivity extends Activity {
             if (kmh < 3) kmh = 0; // diam: abaikan goyangan GPS
             lastKmh = kmh;
             lastKmhAt = speedAt;
-            speed.setText(String.valueOf(kmh));
-            speed.setTextColor(kmh > 100 ? AMBER : TEXT); // di atas batas tol
+            if (!speedGaugeEnabled && speed != null) {
+                speed.setText(String.valueOf(kmh));
+                speed.setTextColor(kmh > 100 ? AMBER : TEXT); // di atas batas tol
+            }
+        if (speedGaugeEnabled && speedGauge != null) {
+            final int k = kmh;
+            speedGauge.post(() -> speedGauge.setKmh(k, true));
+        }
         }
         @Override public void onStatusChanged(String p, int s, Bundle b) { }
         @Override public void onProviderEnabled(String p) { }
@@ -331,8 +344,11 @@ public class HomeActivity extends Activity {
     final Runnable speedStale = new Runnable() {
         @Override public void run() {
             if (SystemClock.elapsedRealtime() - speedAt > 5000) {
-                speed.setText("--");
-                speed.setTextColor(TEXT);
+                if (!speedGaugeEnabled && speed != null) {
+                    speed.setText("--");
+                    speed.setTextColor(TEXT);
+                }
+                if (speedGaugeEnabled && speedGauge != null) speedGauge.post(() -> speedGauge.setKmh(0, false));
             }
             speed.postDelayed(this, 1000);
         }
@@ -340,8 +356,10 @@ public class HomeActivity extends Activity {
 
     /** Hanya selama home tampil: GPS 1 detik (di NWD GPS memang sudah selalu aktif) + passive. */
     void startSpeed() {
-        speed.removeCallbacks(speedStale);
-        speed.post(speedStale);
+        if (!speedGaugeEnabled && speed != null) {
+            speed.removeCallbacks(speedStale);
+            speed.post(speedStale);
+        }
         if (lm == null || checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) return;
         try {
@@ -353,7 +371,7 @@ public class HomeActivity extends Activity {
     }
 
     void stopSpeed() {
-        speed.removeCallbacks(speedStale);
+        if (!speedGaugeEnabled && speed != null) speed.removeCallbacks(speedStale);
         if (lm != null) lm.removeUpdates(speedRx);
     }
 
@@ -625,6 +643,9 @@ public class HomeActivity extends Activity {
         return -1;
     }
 
+    SpeedGauge speedGauge;
+    boolean speedGaugeEnabled;
+
     void updateTime() {
         if (clock == null) return;
         computePrayer(Calendar.getInstance());
@@ -638,7 +659,8 @@ public class HomeActivity extends Activity {
         day.setText(fmtDay.format(now).toUpperCase(ID));
         date.setText(fmtDate.format(now).toUpperCase(ID));
         hijri.setText(hijriText(now.getTime()));
-        gauge.invalidate();
+        if (gauge != null) gauge.invalidate();
+        if (speedGauge != null && speedGaugeEnabled) speedGauge.setKmh(lastKmh, SystemClock.elapsedRealtime() - lastKmhAt < 5000);
     }
 
     // ---------------------------------------------------------------- layout
@@ -711,6 +733,7 @@ public class HomeActivity extends Activity {
         left.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
 
         // Jam di kiri, kecepatan (GPS) di kanan pada garis dasar yang sama, seperti panel instrumen.
+        speedGaugeEnabled = prefs.getBoolean("speedometer", false);
         LinearLayout clockRow = new LinearLayout(this);
         clockRow.setOrientation(LinearLayout.HORIZONTAL);
         clockRow.setGravity(Gravity.BOTTOM);
@@ -718,18 +741,25 @@ public class HomeActivity extends Activity {
         clock.setLetterSpacing(-0.01f);
         clockRow.addView(clock);
         clockRow.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
-        LinearLayout speedBox = new LinearLayout(this);
-        speedBox.setOrientation(LinearLayout.VERTICAL);
-        speedBox.setGravity(Gravity.END);
-        speed = text("--", fHeavy, clockSp * 0.43f, TEXT);
-        speedBox.addView(speed);
-        TextView unit = text("KM/H", fMono, 10, DIM);
-        unit.setLetterSpacing(0.25f);
-        LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(WRAP, WRAP);
-        ul.topMargin = px(4);
-        ul.bottomMargin = px(10);
-        speedBox.addView(unit, ul);
-        clockRow.addView(speedBox);
+        if (speedGaugeEnabled) {
+            speedGauge = new SpeedGauge();
+            LinearLayout.LayoutParams sg = new LinearLayout.LayoutParams(px((int)(clockSp * 0.9f)), px((int)(clockSp * 0.55f)));
+            sg.bottomMargin = px(6);
+            clockRow.addView(speedGauge, sg);
+        } else {
+            LinearLayout speedBox = new LinearLayout(this);
+            speedBox.setOrientation(LinearLayout.VERTICAL);
+            speedBox.setGravity(Gravity.END);
+            speed = text("--", fHeavy, clockSp * 0.43f, TEXT);
+            speedBox.addView(speed);
+            TextView unit = text("KM/H", fMono, 10, DIM);
+            unit.setLetterSpacing(0.25f);
+            LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(WRAP, WRAP);
+            ul.topMargin = px(4);
+            ul.bottomMargin = px(10);
+            speedBox.addView(unit, ul);
+            clockRow.addView(speedBox);
+        }
         left.addView(clockRow, new LinearLayout.LayoutParams(MATCH, WRAP));
 
         View bar = new View(this);
@@ -903,6 +933,62 @@ public class HomeActivity extends Activity {
         t.setIncludeFontPadding(false);
         t.setSingleLine(true);
         return t;
+    }
+
+    class SpeedGauge extends View {
+        final Paint panel = new Paint();
+        final Paint frame = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint big = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint unit = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint bar = new Paint(Paint.ANTI_ALIAS_FLAG);
+        int kmh;
+        boolean fix;
+
+        SpeedGauge() {
+            super(HomeActivity.this);
+            frame.setStyle(Paint.Style.STROKE);
+            frame.setStrokeWidth(px(1));
+            frame.setColor(LINE);
+            big.setTypeface(fHeavy);
+            big.setFakeBoldText(true);
+            big.setTextAlign(Paint.Align.CENTER);
+            unit.setTypeface(fMono);
+            unit.setTextAlign(Paint.Align.CENTER);
+            unit.setLetterSpacing(0.2f);
+        }
+
+        void setKmh(int v, boolean hasFix) {
+            kmh = v;
+            fix = hasFix;
+            invalidate();
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            int w = getWidth(), h = getHeight();
+            panel.setColor(PANEL);
+            c.drawRect(0, 0, w, h, panel);
+            c.drawRect(0.5f, 0.5f, w - 0.5f, h - 0.5f, frame);
+
+            big.setTextSize(Math.min(h * 0.52f, sp(38)));
+            int color = !fix || kmh < 1 ? FAINT : kmh > 100 ? AMBER : TEXT;
+            big.setColor(color);
+            c.drawText(fix ? String.valueOf(kmh) : "--", w / 2f, h * 0.58f, big);
+
+            unit.setTextSize(Math.min(h * 0.16f, sp(9)));
+            unit.setColor(DIM);
+            c.drawText("KM/H", w / 2f, h - px(3), unit);
+
+            int bx = w - px(6), bw = px(3);
+            int bt = px(4), bb = h - px(12);
+            bar.setColor((LINE & 0x00FFFFFF) | 0x80000000);
+            c.drawRoundRect(new RectF(bx, bt, bx + bw, bb), px(1), px(1), bar);
+            if (fix && kmh > 0) {
+                float f = Math.min(1f, kmh / 140f);
+                int fy = bb - Math.round((bb - bt) * f);
+                bar.setColor(kmh > 100 ? AMBER : TEXT);
+                c.drawRoundRect(new RectF(bx, fy, bx + bw, bb), px(1), px(1), bar);
+            }
+        }
     }
 
     int px(float v) { return Math.round(v * dp); }
