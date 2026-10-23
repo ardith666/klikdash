@@ -71,6 +71,21 @@ panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa libra
 - Kalau Zlink (CarPlay/AA nirkabel) membuka tampilannya sendiri dalam 3 menit pertama setelah boot atau
   bangun dari tidur, layar dikembalikan ke home. Sesi CarPlay tetap berjalan di latar.
 
+## Perangkat yang didukung
+
+KlikDash butuh **Android 10 atau lebih baru** dan tata letaknya dibuat untuk layar **1280×720 landscape**.
+Bagian yang khusus headunit (launcher default, tidur/bangun, Zlink, ksmd) ditujukan untuk firmware NWD.
+
+| Perangkat | Layar | Android | Status |
+|---|---|---|---|
+| NWD K2401 (Allwinner sun50iw10) | 1280×720 | 10 | ✅ diuji di perangkat asli |
+| Headunit lain dengan firmware NWD | 1280×720 | 10+ | ⚠️ seharusnya jalan, belum diuji |
+| Headunit Android lain (FYT, MTK, Rockchip, …) | 1280×720 | 10+ | ⚠️ launcher, jadwal sholat, dan Al-Qur'an seharusnya jalan; penyetelan khusus NWD tidak berlaku |
+| Ukuran layar lain atau layar portrait | – | 10+ | ❌ belum dibuatkan tata letaknya |
+
+Zlink dipakai dengan CarPlay nirkabel di iPhone; Android Auto belum diuji. Laporan dari headunit lain sangat membantu:
+buka issue dengan menyebut model, ukuran layar, dan versi Android.
+
 ## Struktur
 
 ```
@@ -210,6 +225,19 @@ Launcher NWD lama **tidak dihapus**. Prosesnya tetap ada karena juga menangani i
   `security find-generic-password -a klikdash -s klikdash-keystore -w`. Untuk CI, isi env `KLIKDASH_KS_PASS`.
   APK yang ditandatangani kunci lain tidak bisa meng-update KlikDash; harus uninstall dulu, dan uninstall
   ikut menghapus audio murattal. Clone baru tanpa keystore akan dibuatkan kunci baru oleh `build.sh`.
+
+## Disclaimer
+
+**Gunakan dengan risiko sendiri.** Perangkat lunak ini diberikan "apa adanya", tanpa jaminan apa pun
+(lihat [LICENSE](LICENSE)).
+
+- Mengganti launcher default dan pengaturan sistem tidak didukung produsen headunit dan bisa berpengaruh
+  pada garansi. Semua perubahan bisa dikembalikan (lihat [Perubahan pada headunit](#perubahan-pada-headunit)).
+- Jangan mengoperasikan layar sambil menyetir. Pakai tombol setir, atau berhenti dengan aman dulu.
+- Jadwal sholat adalah hasil hitungan dan bisa selisih sekitar satu menit dari jadwal resmi; ikuti masjid
+  atau otoritas setempat.
+- Teks Al-Qur'an dan terjemahannya tidak disertakan; periksa teks yang Anda bangun terhadap mushaf resmi.
+- KlikDash adalah proyek komunitas dan tidak berafiliasi dengan maupun didukung oleh NWD.
 
 ## Header README
 
