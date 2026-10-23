@@ -141,6 +141,13 @@ The stock app for that tile is not on your headunit. Tap the tile and pick anoth
 **The CPU temperature does not show.**
 The temperature sensor on that headunit cannot be read by apps. Everything else still works.
 
+**The Hijri date is one day off from the official announcement.**
+Tap the Hijri date on the home screen and pick a correction from −2 to +2 days.
+
+**The speed shows "--".**
+The GPS has no fix yet, for example in a basement or garage. The number comes back once the GPS gets a signal.
+GPS speed can differ slightly from the car's speedometer, which usually reads a little high.
+
 **Prayer times differ from the mosque by about a minute.**
 They are calculated with the Kemenag method and can differ by about a minute. Follow your local mosque or
 authority.

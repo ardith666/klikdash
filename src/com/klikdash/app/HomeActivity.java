@@ -118,7 +118,7 @@ public class HomeActivity extends Activity {
 
     View home;
     LinearLayout drawer;
-    TextView clock, day, date, drawerTitle, drawerCount, temp;
+    TextView clock, day, date, hijri, speed, drawerTitle, drawerCount, temp;
 
     // Suhu CPU headunit dari sensor thermal; dibaca tiap 5 detik selama home tampil.
     static final int HOT = 0xFFFF5A3C;
@@ -266,6 +266,88 @@ public class HomeActivity extends Activity {
         temp.removeCallbacks(tempTick);
         tempTick.run();
         refreshDefaultHome();
+        startSpeed();
+    }
+
+    // ---------------------------------------------------------------- tanggal Hijriah
+
+    static final String[] HIJRI_MONTHS = {"MUHARRAM", "SAFAR", "RABIUL AWAL", "RABIUL AKHIR", "JUMADIL AWAL",
+            "JUMADIL AKHIR", "RAJAB", "SYA'BAN", "RAMADHAN", "SYAWAL", "DZULQA'DAH", "DZULHIJJAH"};
+
+    /**
+     * Umm al-Qura (ICU bawaan Android), cocok dengan kalender Kemenag untuk Oktober 2026. Koreksi ±2 hari bisa
+     * diatur dengan mengetuk tanggalnya, untuk jaga-jaga bila hasil rukyat berbeda.
+     */
+    String hijriText(long now) {
+        android.icu.util.IslamicCalendar c = new android.icu.util.IslamicCalendar();
+        c.setCalculationType(android.icu.util.IslamicCalendar.CalculationType.ISLAMIC_UMALQURA);
+        c.setTimeInMillis(now + prefs.getInt("hijriOffset", 0) * 86_400_000L);
+        return c.get(android.icu.util.Calendar.DAY_OF_MONTH) + " " + HIJRI_MONTHS[c.get(android.icu.util.Calendar.MONTH)]
+                + " " + c.get(android.icu.util.Calendar.YEAR) + " H";
+    }
+
+    void adjustHijri() {
+        final int[] values = {-2, -1, 0, 1, 2};
+        String[] labels = {"−2 hari", "−1 hari", "Otomatis (Umm al-Qura)", "+1 hari", "+2 hari"};
+        int cur = prefs.getInt("hijriOffset", 0);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Koreksi tanggal Hijriah")
+                .setSingleChoiceItems(labels, cur + 2, (d, which) -> {
+                    prefs.edit().putInt("hijriOffset", values[which]).apply();
+                    updateTime();
+                    d.dismiss();
+                })
+                .setNegativeButton("Tutup", null)
+                .show();
+    }
+
+    // ---------------------------------------------------------------- kecepatan (GPS)
+
+    /** Kecepatan dari GPS; headunit ini tidak menyediakan kecepatan dari CAN (can_config_speed=0). */
+    long speedAt;
+
+    final LocationListener speedRx = new LocationListener() {
+        @Override public void onLocationChanged(Location l) {
+            if (!l.hasSpeed()) return;
+            speedAt = SystemClock.elapsedRealtime();
+            int kmh = Math.round(l.getSpeed() * 3.6f);
+            if (kmh < 3) kmh = 0; // diam: abaikan goyangan GPS
+            speed.setText(String.valueOf(kmh));
+            speed.setTextColor(kmh > 100 ? AMBER : TEXT); // di atas batas tol
+        }
+        @Override public void onStatusChanged(String p, int s, Bundle b) { }
+        @Override public void onProviderEnabled(String p) { }
+        @Override public void onProviderDisabled(String p) { }
+    };
+
+    /** Tanpa pembaruan 5 detik (GPS hilang sinyal): tampilkan "--" alih-alih angka basi. */
+    final Runnable speedStale = new Runnable() {
+        @Override public void run() {
+            if (SystemClock.elapsedRealtime() - speedAt > 5000) {
+                speed.setText("--");
+                speed.setTextColor(TEXT);
+            }
+            speed.postDelayed(this, 1000);
+        }
+    };
+
+    /** Hanya selama home tampil: GPS 1 detik (di NWD GPS memang sudah selalu aktif) + passive. */
+    void startSpeed() {
+        speed.removeCallbacks(speedStale);
+        speed.post(speedStale);
+        if (lm == null || checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) return;
+        try {
+            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, speedRx);
+        } catch (Exception ignored) { }
+        try {
+            lm.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 1000, 0, speedRx);
+        } catch (Exception ignored) { }
+    }
+
+    void stopSpeed() {
+        speed.removeCallbacks(speedStale);
+        if (lm != null) lm.removeUpdates(speedRx);
     }
 
     // ---------------------------------------------------------------- tampilan utama (launcher default)
@@ -366,6 +448,7 @@ public class HomeActivity extends Activity {
     }
 
     @Override protected void onPause() {
+        stopSpeed();
         prayerView.stopTicking();
         temp.removeCallbacks(tempTick);
         QuranService.listeners.remove(onQuran);
@@ -624,6 +707,7 @@ public class HomeActivity extends Activity {
         clock.setText(fmtClock.format(now));
         day.setText(fmtDay.format(now).toUpperCase(ID));
         date.setText(fmtDate.format(now).toUpperCase(ID));
+        hijri.setText(hijriText(now.getTime()));
         gauge.invalidate();
     }
 
@@ -660,9 +744,27 @@ public class HomeActivity extends Activity {
         left.addView(makeDefault, ml);
         left.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
 
+        // Jam di kiri, kecepatan (GPS) di kanan pada garis dasar yang sama, seperti panel instrumen.
+        LinearLayout clockRow = new LinearLayout(this);
+        clockRow.setOrientation(LinearLayout.HORIZONTAL);
+        clockRow.setGravity(Gravity.BOTTOM);
         clock = text("00:00", fHeavy, 150, TEXT);
         clock.setLetterSpacing(-0.01f);
-        left.addView(clock);
+        clockRow.addView(clock);
+        clockRow.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+        LinearLayout speedBox = new LinearLayout(this);
+        speedBox.setOrientation(LinearLayout.VERTICAL);
+        speedBox.setGravity(Gravity.END);
+        speed = text("--", fHeavy, 64, TEXT);
+        speedBox.addView(speed);
+        TextView unit = text("KM/H", fMono, 10, DIM);
+        unit.setLetterSpacing(0.25f);
+        LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(WRAP, WRAP);
+        ul.topMargin = px(4);
+        ul.bottomMargin = px(10);
+        speedBox.addView(unit, ul);
+        clockRow.addView(speedBox);
+        left.addView(clockRow, new LinearLayout.LayoutParams(MATCH, WRAP));
 
         View bar = new View(this);
         bar.setBackgroundColor(AMBER);
@@ -680,6 +782,13 @@ public class HomeActivity extends Activity {
         LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(WRAP, WRAP);
         dl.topMargin = px(6);
         left.addView(date, dl);
+
+        hijri = text("", fMono, 13, DIM);
+        hijri.setLetterSpacing(0.2f);
+        hijri.setOnClickListener(v -> adjustHijri());
+        LinearLayout.LayoutParams hl = new LinearLayout.LayoutParams(WRAP, WRAP);
+        hl.topMargin = px(8);
+        left.addView(hijri, hl);
 
         left.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
         prayerView = new PrayerView();

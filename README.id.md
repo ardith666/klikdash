@@ -45,7 +45,10 @@ panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa libra
 ## Fitur
 
 **Home**
-- Jam besar, hari dan tanggal dalam bahasa Indonesia, serta penggaris 24 jam dengan penanda waktu sholat.
+- Jam besar, hari dan tanggal dalam bahasa Indonesia, tanggal Hijriah (Umm al-Qura, cocok dengan kalender
+  Kemenag; ketuk untuk koreksi ±2 hari), serta penggaris 24 jam dengan penanda waktu sholat.
+- Kecepatan km/h di samping jam, dari GPS (headunit ini tidak menyediakan kecepatan dari CAN). Berwarna amber di
+  atas 100 km/h, dan tampil "--" saat GPS belum dapat sinyal.
 - Jadwal sholat offline metode Kemenag (Subuh 20°, Isya 18°, Ashar Syafi'i, ihtiyath +2 menit).
   Lokasi diambil otomatis dari GPS dengan menumpang *passive provider*, sehingga tidak ada beban tambahan.
   Hitung mundur ke waktu sholat berikutnya diperbarui per detik.

@@ -136,6 +136,14 @@ Aplikasi bawaan untuk ubin itu tidak ada di headunit Anda. Ketuk ubin itu, lalu 
 **Suhu CPU tidak tampil.**
 Sensor suhu di headunit itu tidak bisa dibaca oleh aplikasi. Fitur lain tetap jalan.
 
+**Tanggal Hijriah beda satu hari dari pengumuman resmi.**
+Ketuk tanggal Hijriah di home, lalu pilih koreksi −2 sampai +2 hari.
+
+**Kecepatan tampil "--".**
+GPS belum mendapat sinyal, misalnya di basement atau garasi. Angkanya muncul lagi begitu GPS mendapat sinyal.
+Kecepatan dari GPS bisa sedikit berbeda dari speedometer mobil; speedometer biasanya menunjukkan sedikit lebih
+tinggi.
+
 **Jadwal sholat berbeda sekitar satu menit dari masjid.**
 Jadwal dihitung dengan metode Kemenag dan bisa selisih sekitar satu menit. Ikuti masjid atau otoritas
 setempat.

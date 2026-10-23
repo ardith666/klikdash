@@ -46,7 +46,10 @@ without Gradle. The app's own interface is in Indonesian.
 ## Features
 
 **Home**
-- A large clock, the day and date in Indonesian, and a 24-hour ruler with prayer-time markers.
+- A large clock, the day and date in Indonesian, the Hijri date (Umm al-Qura, matching the Kemenag calendar;
+  tap it for a ±2-day correction), and a 24-hour ruler with prayer-time markers.
+- Speed in km/h next to the clock, from GPS (this headunit exposes no CAN speed). It turns amber above 100 km/h
+  and shows "--" when the GPS has no fix.
 - Offline prayer times using the Kemenag (Indonesian Ministry of Religious Affairs) method: Fajr 20°,
   Isha 18°, Shafi'i Asr, +2-minute ihtiyath. The location comes from GPS automatically through the
   *passive provider*, which adds no extra load. The countdown to the next prayer updates every second.
