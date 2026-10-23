@@ -1,14 +1,19 @@
 package id.kokpit;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.ContentObserver;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.ColorMatrix;
@@ -19,9 +24,11 @@ import android.graphics.PorterDuffColorFilter;
 import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -33,12 +40,15 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.os.UserManager;
 import android.provider.Settings;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
+import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
-import android.view.DragEvent;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
@@ -49,6 +59,17 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -122,18 +143,37 @@ public class HomeActivity extends Activity {
     LocationManager lm;
 
     View home;
+    VolView vol;
+    SpeedView speed;
+    float speedKmh;
+    boolean speedFix;
+    long speedAt, speedLastMs;
+    double speedLat, speedLon;
+    TextView volPopup;
+    String volKey;
+    ContentObserver volObs;
     LinearLayout drawer;
-    TextView clock, day, date, drawerTitle, drawerCount, temp;
+    TextView clock, day, date, drawerTitle, drawerCount, tag;
+    long cpuTotal, cpuIdle;
 
-    // Suhu CPU headunit dari sensor thermal; dibaca tiap 5 detik selama home tampil.
+    // Beban CPU/RAM + suhu headunit; dibaca tiap 5 detik selama home tampil.
     static final int HOT = 0xFFFF5A3C;
     final String cpuZone = findCpuZone();
-    final Runnable tempTick = new Runnable() {
+    final Runnable perfTick = new Runnable() {
         @Override public void run() {
-            updateTemp();
-            temp.postDelayed(this, 5000);
+            updatePerf();
+            tag.postDelayed(this, 5000);
         }
     };
+
+    static String readLine(String path) {
+        try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(path))) {
+            String s = r.readLine();
+            return s == null ? null : s.trim();
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     static String findCpuZone() {
         java.io.File[] zones = new java.io.File("/sys/class/thermal").listFiles();
@@ -146,30 +186,57 @@ public class HomeActivity extends Activity {
         return "/sys/class/thermal/thermal_zone0/temp";
     }
 
-    static String readLine(String path) {
-        try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(path))) {
-            String s = r.readLine();
-            return s == null ? null : s.trim();
-        } catch (Exception e) {
-            return null;
+    int tempC() {
+        String s = readLine(cpuZone);
+        if (s == null) return -1;
+        try {
+            int c = Integer.parseInt(s.trim());
+            return c > 1000 ? Math.round(c / 1000f) : c;
+        } catch (NumberFormatException e) {
+            return -1;
         }
     }
 
-    void updateTemp() {
-        String s = readLine(cpuZone);
-        if (s == null) { temp.setText(""); return; }
-        int c;
+    void updatePerf() {
+        int mem = 0;
         try {
-            c = Integer.parseInt(s);
-        } catch (NumberFormatException e) {
-            temp.setText("");
-            return;
+            ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
+            ((ActivityManager) getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(mi);
+            if (mi.totalMem > 0) mem = Math.round(100f * (mi.totalMem - mi.availMem) / mi.totalMem);
+        } catch (Exception ignored) { }
+        int cpu = 0;
+        String s = readLine("/proc/stat");
+        if (s != null) {
+            String[] f = s.trim().split("\\s+");
+            long total = 0, idle = 0;
+            for (int i = 1; i < f.length; i++) {
+                try { total += Long.parseLong(f[i]); } catch (NumberFormatException ignored) { }
+            }
+            if (f.length > 5) {
+                try { idle = Long.parseLong(f[4]) + Long.parseLong(f[5]); } catch (NumberFormatException ignored) { }
+            }
+            if (cpuTotal > 0 && total > cpuTotal) {
+                cpu = (int) Math.round(100.0 * (1.0 - (double) (idle - cpuIdle) / (total - cpuTotal)));
+                cpu = Math.max(0, Math.min(100, cpu));
+            }
+            cpuTotal = total;
+            cpuIdle = idle;
         }
-        if (c > 1000) c = Math.round(c / 1000f); // sensor melaporkan mili-derajat
-        temp.setText(c >= 85 ? "CPU " + c + "°C · PANAS" : "CPU " + c + "°C");
-        temp.setTextColor(c >= 85 ? HOT : c >= 70 ? AMBER : DIM);
+        if (speed != null) speed.set(speedKmh, speedFix && SystemClock.elapsedRealtime() - speedAt < 5000);
+        if (tag == null) return;
+        int c = tempC();
+        String line = "ARDITH666 \u00b7 MEM " + mem + "% \u00b7 CPU " + cpu + "%";
+        if (c >= 0) line += " " + c + "\u00b0C";
+        SpannableString ss = new SpannableString(line);
+        if (c >= 0) {
+            int i = line.indexOf(c + "\u00b0C");
+            if (i >= 0) ss.setSpan(new ForegroundColorSpan(c >= 85 ? HOT : c >= 70 ? AMBER : DIM),
+                    i, line.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        tag.setText(ss);
     }
     Gauge gauge;
+    BtWidget btWidget;
     PrayerView prayerView;
     GridView grid;
     AppAdapter adapter;
@@ -179,6 +246,20 @@ public class HomeActivity extends Activity {
         @Override public void onReceive(Context c, Intent i) { updateTime(); }
     };
 
+    final BroadcastReceiver btRx = new BroadcastReceiver() {
+        @Override public void onReceive(Context c, Intent i) {
+            if (btWidget == null) return;
+            String a = i.getAction();
+            if ("com.nwd.btmusic.playinfo.changed".equals(a)) {
+                btWidget.meta(i.getStringExtra("track"), i.getStringExtra("artist"));
+            } else if ("com.bt.ACTION_BT_MUSIC_PLAY".equals(a)) {
+                btWidget.play(true);
+            } else if ("com.bt.ACTION_BT_MUSIC_PAUSE".equals(a)) {
+                btWidget.play(false);
+            }
+        }
+    };
+
     final LocationListener locRx = new LocationListener() {
         @Override public void onLocationChanged(Location l) { onLocation(l); }
         @Override public void onStatusChanged(String p, int s, Bundle b) { }
@@ -186,11 +267,44 @@ public class HomeActivity extends Activity {
         @Override public void onProviderDisabled(String p) { }
     };
 
+    final LocationListener speedRx = new LocationListener() {
+        @Override public void onLocationChanged(Location l) { onSpeed(l); }
+        @Override public void onStatusChanged(String p, int s, Bundle b) { }
+        @Override public void onProviderEnabled(String p) { }
+        @Override public void onProviderDisabled(String p) {
+            speedFix = false;
+            if (speed != null) speed.set(0, false);
+        }
+    };
+
+    /** Kecepatan dari GPS; l.getSpeed() (Doppler) dipakai bila ada, sisanya hitung jarak/waktu. */
+    void onSpeed(Location l) {
+        float kmh = 0;
+        if (l.hasSpeed()) {
+            kmh = l.getSpeed() * 3.6f;
+        } else if (speedLastMs > 0) {
+            long dt = l.getTime() - speedLastMs;
+            if (dt > 0) {
+                float[] d = new float[1];
+                Location.distanceBetween(speedLat, speedLon, l.getLatitude(), l.getLongitude(), d);
+                kmh = d[0] / (dt / 1000f) * 3.6f;
+            }
+        }
+        if (kmh < 3) kmh = 0;
+        speedKmh = kmh;
+        speedFix = true;
+        speedAt = SystemClock.elapsedRealtime();
+        speedLastMs = l.getTime();
+        speedLat = l.getLatitude();
+        speedLon = l.getLongitude();
+        if (speed != null) speed.set(kmh, true);
+    }
+
     final BroadcastReceiver pkgRx = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
             loadApps();
             adapter.notifyDataSetChanged();
-            for (Tile t : tiles) t.invalidate();
+            for (Tile t : tiles) if (t != null) t.invalidate();
         }
     };
 
@@ -219,7 +333,6 @@ public class HomeActivity extends Activity {
         mono = new ColorMatrixColorFilter(cm);
         pressed = new PorterDuffColorFilter(AMBER, PorterDuff.Mode.SRC_ATOP);
 
-        prefs = getSharedPreferences("kokpit", MODE_PRIVATE);
         colorIcons = prefs.getBoolean("colorIcons", true);
         loadSlots();
         loadApps();
@@ -242,6 +355,17 @@ public class HomeActivity extends Activity {
         root.addView(drawer, MATCH, MATCH);
         setContentView(root);
 
+        volPopup = text("", fMonoBold, 22, AMBER);
+        volPopup.setPadding(px(26), px(12), px(26), px(12));
+        GradientDrawable vpBg = new GradientDrawable();
+        vpBg.setColor(PANEL);
+        vpBg.setStroke(px(1), LINE);
+        volPopup.setBackground(vpBg);
+        volPopup.setVisibility(View.GONE);
+        volPopup.setClickable(false);
+        root.addView(volPopup, new FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER));
+        updateVolume(false);
+
         IntentFilter tf = new IntentFilter(Intent.ACTION_TIME_TICK);
         tf.addAction(Intent.ACTION_TIME_CHANGED);
         tf.addAction(Intent.ACTION_TIMEZONE_CHANGED);
@@ -259,6 +383,23 @@ public class HomeActivity extends Activity {
         if (!getSystemService(UserManager.class).isUserUnlocked()) {
             registerReceiver(unlockRx, new IntentFilter(Intent.ACTION_USER_UNLOCKED));
         }
+        IntentFilter bf = new IntentFilter("com.nwd.btmusic.playinfo.changed");
+        bf.addAction("com.bt.ACTION_BT_MUSIC_PLAY");
+        bf.addAction("com.bt.ACTION_BT_MUSIC_PAUSE");
+        registerReceiver(btRx, bf);
+        volObs = new ContentObserver(null) {
+            @Override public void onChange(boolean self, Uri uri) {
+                String k = uri == null ? null : uri.getLastPathSegment();
+                if (k == null) return;
+                volKey = k;
+                runOnUiThread(() -> {
+                    if ("mcu_max_volume".equals(volKey)) updateVolume(false);
+                    else updateVolume(true);
+                });
+            }
+        };
+        for (String k : new String[]{"mcu_system_volume", "mcu_bt_volume", "mcu_gps_volume", "mcu_max_volume"})
+            getContentResolver().registerContentObserver(Settings.System.getUriFor(k), false, volObs);
 
         applyLocationExtras(getIntent());
         updateTime();
@@ -278,14 +419,17 @@ public class HomeActivity extends Activity {
         QuranService.listeners.add(onQuran);
         onQuran.run();
         updateTime();
+        updateVolume(false);
+        if (lm != null) try { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, speedRx); } catch (Exception ignored) { }
         prayerView.startTicking();
-        temp.removeCallbacks(tempTick);
-        tempTick.run();
+        tag.removeCallbacks(perfTick);
+        perfTick.run();
     }
 
     @Override protected void onPause() {
+        if (lm != null) try { lm.removeUpdates(speedRx); } catch (Exception ignored) { }
         prayerView.stopTicking();
-        temp.removeCallbacks(tempTick);
+        tag.removeCallbacks(perfTick);
         QuranService.listeners.remove(onQuran);
         super.onPause();
     }
@@ -325,6 +469,8 @@ public class HomeActivity extends Activity {
         unregisterReceiver(timeRx);
         unregisterReceiver(pkgRx);
         unregisterReceiver(wakeRx);
+        unregisterReceiver(btRx);
+        if (volObs != null) getContentResolver().unregisterContentObserver(volObs);
         try { unregisterReceiver(unlockRx); } catch (IllegalArgumentException ignored) { }
         super.onDestroy();
     }
@@ -334,7 +480,10 @@ public class HomeActivity extends Activity {
     /** Prefs di penyimpanan DE; pindahkan sekali dari CE (versi lama) begitu CE sudah terbuka. */
     SharedPreferences openPrefs() {
         Context de = createDeviceProtectedStorageContext();
-        if (getSystemService(UserManager.class).isUserUnlocked()) de.moveSharedPreferencesFrom(this, "kokpit");
+        java.io.File df = new java.io.File(de.getDataDir(), "shared_prefs/kokpit.xml");
+        if (!df.exists() && getSystemService(UserManager.class).isUserUnlocked()) {
+            de.moveSharedPreferencesFrom(this, "kokpit");
+        }
         return de.getSharedPreferences("kokpit", MODE_PRIVATE);
     }
 
@@ -391,6 +540,7 @@ public class HomeActivity extends Activity {
         Intent q = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
         for (ResolveInfo r : pm.queryIntentActivities(q, 0)) {
             if (HomeActivity.class.getName().equals(r.activityInfo.name)) continue;
+            if (r.activityInfo.name.endsWith("WallpaperChooser")) continue; // ikon wallpaper tidak dipakai
             App a = new App();
             a.cn = new ComponentName(r.activityInfo.packageName, r.activityInfo.name);
             a.label = String.valueOf(r.loadLabel(pm)).trim();
@@ -410,6 +560,7 @@ public class HomeActivity extends Activity {
     }
 
     void launch(ComponentName cn) {
+        if (cn.getClassName().endsWith("com.nwd.screenoff.ScreenOffActivity")) { screenOff(); return; }
         userLaunch = true;
         Intent i = new Intent(Intent.ACTION_MAIN)
                 .addCategory(Intent.CATEGORY_LAUNCHER)
@@ -424,6 +575,20 @@ public class HomeActivity extends Activity {
             } catch (Exception ignored) { }
             Toast.makeText(this, "Tidak bisa membuka aplikasi", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /** Protokol MCU yang sama dengan tombol Screen Off launcher bawaan (key 58). */
+    void screenOff() {
+        byte[] p = new byte[9];
+        p[0] = (byte) 0xF0;
+        p[1] = 6;
+        p[2] = 1;
+        p[3] = 1;
+        p[7] = 58;
+        byte sum = 0;
+        for (int i = 1; i < p.length - 1; i++) sum = (byte) (sum + p[i]);
+        p[8] = sum;
+        sendBroadcast(new Intent("com.nwd.action.EMU_RECEIVER_MCU_PROTOCAL").putExtra("protocal", p));
     }
 
     // ---------------------------------------------------------------- lokasi & sholat
@@ -530,6 +695,33 @@ public class HomeActivity extends Activity {
         return -1;
     }
 
+    final Runnable hideVol = new Runnable() {
+        @Override public void run() {
+            if (volPopup == null) return;
+            volPopup.animate().alpha(0f).setDuration(250).withEndAction(() -> volPopup.setVisibility(View.GONE)).start();
+        }
+    };
+
+    int mcu(String key, int def) {
+        try { return Settings.System.getInt(getContentResolver(), key, def); } catch (Exception e) { return def; }
+    }
+
+    void updateVolume(boolean popup) {
+        int m = Math.max(1, mcu("mcu_max_volume", 40));
+        String key = volKey;
+        if (key == null || "mcu_max_volume".equals(key))
+            key = btWidget != null && btWidget.playing ? "mcu_bt_volume" : "mcu_system_volume";
+        int v = Math.max(0, Math.min(m, mcu(key, 0)));
+        if (vol != null) vol.set(v, m);
+        if (!popup || volPopup == null) return;
+        volPopup.setText("VOL " + v);
+        volPopup.setVisibility(View.VISIBLE);
+        volPopup.setAlpha(1f);
+        volPopup.bringToFront();
+        volPopup.removeCallbacks(hideVol);
+        volPopup.postDelayed(hideVol, 1200);
+    }
+
     void updateTime() {
         if (clock == null) return;
         computePrayer(Calendar.getInstance());
@@ -559,25 +751,31 @@ public class HomeActivity extends Activity {
 
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.HORIZONTAL);
-        TextView tag = text("KLIKDASH  ·  K2401", fMono, 12, DIM);
-        tag.setLetterSpacing(0.25f);
+        tag = text("ARDITH666", fMono, 12, DIM);
+        tag.setLetterSpacing(0.15f);
         top.addView(tag, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        temp = text("", fMonoBold, 12, DIM);
-        temp.setLetterSpacing(0.15f);
-        top.addView(temp);
         left.addView(top);
         left.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
 
-        clock = text("00:00", fHeavy, 150, TEXT);
+        clock = text("00:00", fHeavy, 140, TEXT);
+        clock.getPaint().setFakeBoldText(true);
         clock.setLetterSpacing(-0.01f);
         left.addView(clock);
 
+        LinearLayout barRow = new LinearLayout(this);
+        barRow.setOrientation(LinearLayout.HORIZONTAL);
+        barRow.setGravity(Gravity.CENTER_VERTICAL);
         View bar = new View(this);
         bar.setBackgroundColor(AMBER);
-        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(px(84), px(6));
+        barRow.addView(bar, new LinearLayout.LayoutParams(px(84), px(6)));
+        vol = new VolView();
+        LinearLayout.LayoutParams vvl = new LinearLayout.LayoutParams(px(60), px(24));
+        vvl.leftMargin = px(16);
+        barRow.addView(vol, vvl);
+        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(WRAP, WRAP);
         bl.topMargin = px(14);
         bl.bottomMargin = px(22);
-        left.addView(bar, bl);
+        left.addView(barRow, bl);
 
         day = text("", fMonoBold, 18, AMBER);
         day.setLetterSpacing(0.3f);
@@ -597,7 +795,17 @@ public class HomeActivity extends Activity {
         gl.topMargin = px(18);
         left.addView(gauge, gl);
 
-        row.addView(left, new LinearLayout.LayoutParams(px(420), MATCH));
+        btWidget = new BtWidget();
+        FrameLayout leftBox = new FrameLayout(this);
+        leftBox.addView(left, new FrameLayout.LayoutParams(MATCH, MATCH));
+        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(px(243), px(275), Gravity.TOP | Gravity.RIGHT);
+        bp.topMargin = px(38);
+        leftBox.addView(btWidget, bp);
+        leftBox.post(() -> {
+            bp.topMargin = clock.getTop() + px(15);
+            btWidget.setLayoutParams(bp);
+        });
+        row.addView(leftBox, new LinearLayout.LayoutParams(px(420), MATCH));
 
         View div = new View(this);
         div.setBackgroundColor(LINE);
@@ -615,6 +823,13 @@ public class HomeActivity extends Activity {
             for (int c = 0; c < COLS; c++) {
                 int idx = r * COLS + c;
                 if (idx > SLOTS) break;
+                if (r == 0 && c < 2) {
+                    if (c == 0) {
+                        speed = new SpeedView();
+                        line.addView(speed, new LinearLayout.LayoutParams(0, MATCH, 2f));
+                    }
+                    continue;
+                }
                 Tile t = new Tile(idx);
                 tiles[idx] = t;
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, MATCH, 1f);
@@ -687,7 +902,7 @@ public class HomeActivity extends Activity {
     void openDrawer(int slot) {
         pickSlot = slot;
         drawerTitle.setText(slot >= 0
-                ? String.format(Locale.US, "PILIH UNTUK SLOT %02d", slot + 1)
+                ? String.format(Locale.US, "PILIH UNTUK SLOT %02d", slot - 1)
                 : "SEMUA APLIKASI");
         drawerCount.setText(apps.size() + " APLIKASI");
         grid.setSelection(0);
@@ -811,57 +1026,25 @@ public class HomeActivity extends Activity {
                 if (a == null) openDrawer(idx); else launch(a.cn);
             });
             if (idx < SLOTS) {
-                // Tekan lama: geser ke ubin lain = tukar posisi; lepas di tempat = pilih aplikasi.
+                // Tekan lama: menu ganti/hapus; slot kosong bisa diisi lewat ketukan.
                 setOnLongClickListener(v -> {
                     v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                    v.startDragAndDrop(null, new View.DragShadowBuilder(v), idx, 0);
-                    dragging = true;
-                    invalidate();
+                    App a = appFor(idx);
+                    if (a == null) { openDrawer(idx); return true; }
+                    new AlertDialog.Builder(HomeActivity.this)
+                            .setTitle(String.format(Locale.US, "SLOT %02d \u00b7 %s", idx - 1, a.label.toUpperCase(ID)))
+                            .setItems(new CharSequence[]{"Ganti aplikasi", "Hapus ikon"}, (d, which) -> {
+                                if (which == 0) {
+                                    openDrawer(idx);
+                                } else {
+                                    saveSlot(idx, null, null);
+                                    tiles[idx].invalidate();
+                                }
+                            })
+                            .setNegativeButton("Batal", null)
+                            .show();
                     return true;
                 });
-                setOnDragListener((v, e) -> {
-                    if (!(e.getLocalState() instanceof Integer)) return false;
-                    int from = (Integer) e.getLocalState();
-                    switch (e.getAction()) {
-                        case DragEvent.ACTION_DRAG_ENTERED:
-                            target = idx != from;
-                            invalidate();
-                            break;
-                        case DragEvent.ACTION_DRAG_EXITED:
-                            target = false;
-                            invalidate();
-                            break;
-                        case DragEvent.ACTION_DROP:
-                            target = false;
-                            if (idx == from) openDrawer(idx); else swapSlots(from, idx);
-                            break;
-                        case DragEvent.ACTION_DRAG_ENDED:
-                            target = false;
-                            dragging = false;
-                            invalidate();
-                            break;
-                    }
-                    return true;
-                });
-            }
-        }
-
-        boolean dragging, target;
-
-        /** Ubin asal saat diseret: diredupkan. Ubin tujuan: bingkai amber tebal. */
-        void drawDragState(Canvas c) {
-            int w = getWidth(), h = getHeight();
-            if (dragging) {
-                fill.setColor(0xD90B0B0A);
-                c.drawRect(0, 0, w, h, fill);
-            }
-            if (target) {
-                fill.setColor(AMBER);
-                int t = px(3);
-                c.drawRect(0, 0, w, t, fill);
-                c.drawRect(0, h - t, w, h, fill);
-                c.drawRect(0, 0, t, h, fill);
-                c.drawRect(w - t, 0, w, h, fill);
             }
         }
 
@@ -872,8 +1055,10 @@ public class HomeActivity extends Activity {
             boolean all = idx == SLOTS;
             App a = all ? null : appFor(idx);
 
-            small.setColor(down ? INK : (idx < COLS ? AMBER : DIM));
-            c.drawText(String.format(Locale.US, "%02d", idx + 1), m, m + sp(11), small);
+            // Slot 01-02 dipakai widget kecepatan; ubin aplikasi mulai dari 01 lagi.
+            int num = idx - 1;
+            small.setColor(down ? INK : (num <= 2 ? AMBER : TEXT));
+            c.drawText(String.format(Locale.US, "%02d", num), m, m + sp(11), small);
 
             int icon = px(60);
             String name, sub = null;
@@ -914,7 +1099,6 @@ public class HomeActivity extends Activity {
             if (tw > avail) label.setTextSize(Math.max(sp(22), sp(30) * avail / tw));
             CharSequence s = TextUtils.ellipsize(name, label, avail, TextUtils.TruncateAt.END);
             c.drawText(s, 0, s.length(), m, base, label);
-            drawDragState(c);
         }
     }
 
@@ -972,6 +1156,387 @@ public class HomeActivity extends Activity {
             c.app = apps.get(i);
             c.invalidate();
             return c;
+        }
+    }
+
+    /** Ikon speaker + angka volume media, sebaris dengan garis aksen di bawah jam. */
+    /** Widget kecepatan GPS untuk slot 01-02; satuan km/jam. */
+    class SpeedView extends View {
+        final Paint panel = new Paint();
+        final Paint frame = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint big = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint unit = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint gps = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint volBar = new Paint(Paint.ANTI_ALIAS_FLAG);
+        float kmh;
+        boolean fix;
+
+        SpeedView() {
+            super(HomeActivity.this);
+            frame.setStyle(Paint.Style.STROKE);
+            frame.setStrokeWidth(px(1));
+            frame.setColor(LINE);
+            big.setTypeface(fHeavy);
+            big.setFakeBoldText(true);
+            big.setStyle(Paint.Style.FILL_AND_STROKE);
+            big.setStrokeWidth(px(1));
+            big.setStrokeJoin(Paint.Join.ROUND);
+            big.setTextAlign(Paint.Align.CENTER);
+            unit.setTypeface(fMonoBold);
+            unit.setTextAlign(Paint.Align.CENTER);
+            unit.setLetterSpacing(0.2f);
+            gps.setTypeface(fMonoBold);
+            gps.setLetterSpacing(0.15f);
+        }
+
+        void set(float v, boolean hasFix) {
+            kmh = v;
+            fix = hasFix;
+            invalidate();
+        }
+
+
+        @Override protected void onDraw(Canvas c) {
+            int w = getWidth(), h = getHeight();
+            panel.setColor(PANEL);
+            c.drawRect(0, 0, w, h, panel);
+            c.drawRect(0.5f, 0.5f, w - 0.5f, h - 0.5f, frame);
+
+            gps.setTextSize(sp(10));
+            gps.setColor(fix ? AMBER : DIM);
+            c.drawText(fix ? "GPS" : "NO GPS", px(12), px(18), gps);
+
+            int v = Math.round(kmh);
+            int color;
+            if (!fix || v < 1) color = 0xFF5C5850;        // diam / berhenti: abu gelap
+            else if (v < 80) color = 0xFFFFFFFF;          // jalan aman: putih
+            else if (v <= 100) color = 0xFFFFC400;        // 80-100: kuning
+            else if (v <= 120) color = 0xFFFF8A00;        // 100-120: warning
+            else if (v < 150) color = 0xFFFF4A2E;         // 120-149: warning keras
+            else color = 0xFFFF1A1A;                      // >=150: merah bahaya
+            big.setTextSize(sp(64));
+            big.setColor(color);
+            c.drawText(fix ? String.valueOf(v) : "--", w / 2f, h * 0.66f, big);
+
+            unit.setTextSize(sp(12));
+            unit.setColor(AMBER);
+            c.drawText("KM/H", w / 2f, h - px(12), unit);
+
+            int barX = w - px(22), barW = px(10);
+            int barTop = px(22), barBot = h - px(22);
+            volBar.setStyle(Paint.Style.FILL);
+            volBar.setColor((color & 0x00FFFFFF) | 0x40000000);
+            c.drawRoundRect(barX, barTop, barX + barW, barBot, px(2), px(2), volBar);
+            float frac = Math.min(1f, Math.max(0f, fix ? kmh / 150f : 0f));
+            int fillTop = barBot - Math.round((barBot - barTop) * frac);
+            if (fillTop < barBot) {
+                volBar.setColor(color);
+                c.drawRoundRect(barX, fillTop, barX + barW, barBot, px(2), px(2), volBar);
+            }
+        }
+    }
+
+    class VolView extends View {
+        final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        int v, max = 15;
+
+        VolView() {
+            super(HomeActivity.this);
+            p.setTypeface(fMonoBold);
+            p.setTextSize(sp(12));
+        }
+
+        void set(int value, int maximum) {
+            v = value;
+            max = Math.max(1, maximum);
+            invalidate();
+        }
+
+        @Override protected void onMeasure(int w, int h) {
+            setMeasuredDimension(px(60), px(24));
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            int cy = getHeight() / 2;
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(v > 0 ? AMBER : DIM);
+            Path sp = new Path();
+            sp.moveTo(px(2), cy - px(4));
+            sp.lineTo(px(7), cy - px(4));
+            sp.lineTo(px(13), cy - px(9));
+            sp.lineTo(px(13), cy + px(9));
+            sp.lineTo(px(7), cy + px(4));
+            sp.lineTo(px(2), cy + px(4));
+            sp.close();
+            c.drawPath(sp, p);
+            if (v > 0) {
+                p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(px(1.5f));
+                p.setColor(AMBER);
+                RectF arc = new RectF(px(10), cy - px(7), px(22), cy + px(7));
+                c.drawArc(arc, -45, 90, false, p);
+                if (v > max / 2) {
+                    arc.set(px(10), cy - px(11), px(30), cy + px(11));
+                    c.drawArc(arc, -45, 90, false, p);
+                }
+            }
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(v > 0 ? TEXT : DIM);
+            Paint.FontMetrics fm = p.getFontMetrics();
+            c.drawText(String.valueOf(v), px(35), cy - (fm.ascent + fm.descent) / 2f, p);
+        }
+    }
+
+    /** Kartu pemutar BT: sampul, judul/penyanyi, dan kontrol. Sampul dicari daring lalu di-cache. */
+    class BtWidget extends View {
+        final Paint panel = new Paint();
+        final Paint frame = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint disc = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint knob = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final TextPaint title = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        final TextPaint sub = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        final TextPaint ini = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        final Rect rPrev = new Rect(), rPlay = new Rect(), rNext = new Rect();
+        final Rect src = new Rect(), dst = new Rect();
+        final int[] palette = {0xFF3A4C44, 0xFF4C3C2E, 0xFF334757, 0xFF4C3542, 0xFF414A32};
+        String track = "", artist = "";
+        Bitmap art;
+        boolean playing;
+        int held, seq;
+
+        BtWidget() {
+            super(HomeActivity.this);
+            frame.setStyle(Paint.Style.STROKE);
+            frame.setStrokeWidth(px(1));
+            frame.setColor(LINE);
+            title.setTypeface(fHeavy);
+            title.setTextSize(sp(19));
+            title.setFakeBoldText(true);
+            title.setColor(AMBER);
+            title.setTextAlign(Paint.Align.CENTER);
+            sub.setTypeface(fMonoBold);
+            sub.setTextSize(sp(12));
+            sub.setFakeBoldText(true);
+            sub.setLetterSpacing(0.08f);
+            sub.setColor(AMBER);
+            sub.setTextAlign(Paint.Align.CENTER);
+            ini.setTypeface(fHeavy);
+            ini.setTextSize(sp(44));
+            ini.setTextAlign(Paint.Align.CENTER);
+            track = prefs.getString("btTrack", "");
+            artist = prefs.getString("btArtist", "");
+            track = clean(track, artist);
+            playing = prefs.getBoolean("btPlaying", false);
+            if (!track.isEmpty() || !artist.isEmpty()) load(++seq);
+        }
+
+        String clean(String t, String a) {
+            if (t == null) return "";
+            t = t.trim();
+            a = a == null ? "" : a.trim();
+            if (!a.isEmpty() && t.toLowerCase().endsWith(a.toLowerCase()))
+                t = t.substring(0, t.length() - a.length()).trim();
+            return t;
+        }
+
+        void meta(String t, String a) {
+            artist = a == null ? "" : a.trim();
+            track = clean(t, artist);
+            art = null;
+            seq++;
+            prefs.edit().putString("btTrack", track).putString("btArtist", artist).apply();
+            invalidate();
+            load(seq);
+        }
+
+        void play(boolean p) {
+            if (playing == p) return;
+            playing = p;
+            prefs.edit().putBoolean("btPlaying", p).apply();
+            invalidate();
+        }
+
+        int at(float x, float y) {
+            if (rPrev.contains((int) x, (int) y)) return 2;
+            if (rPlay.contains((int) x, (int) y)) return 1;
+            if (rNext.contains((int) x, (int) y)) return 3;
+            return 0;
+        }
+
+        @Override public boolean onTouchEvent(MotionEvent e) {
+            int hit = at(e.getX(), e.getY());
+            if (e.getAction() == MotionEvent.ACTION_DOWN) {
+                held = hit;
+                invalidate();
+                return hit != 0;
+            }
+            if (e.getAction() == MotionEvent.ACTION_UP) {
+                int was = held;
+                held = 0;
+                invalidate();
+                if (was != 0 && was == hit) {
+                    sendBroadcast(new Intent("com.nwd.ACTION_PLAY_BTMUSIC_CMD").putExtra("extra_command", was));
+                }
+                return true;
+            }
+            if (e.getAction() == MotionEvent.ACTION_CANCEL) {
+                held = 0;
+                invalidate();
+            }
+            return hit != 0;
+        }
+
+        void load(final int want) {
+            final String t = track, a = artist;
+            if (t.isEmpty() && a.isEmpty()) return;
+            new Thread(() -> {
+                Bitmap b = cover(t, a);
+                if (b == null) return;
+                runOnUiThread(() -> {
+                    if (want == seq) {
+                        art = b;
+                        invalidate();
+                    }
+                });
+            }, "bt-cover").start();
+        }
+
+        Bitmap cover(String t, String a) {
+            try {
+                File dir = new File(getContext().getFilesDir(), "btart");
+                if (!dir.exists()) dir.mkdirs();
+                File f = new File(dir, hash(a + "\n" + t) + ".jpg");
+                if (f.exists()) {
+                    Bitmap b = BitmapFactory.decodeFile(f.getPath());
+                    if (b != null) return b;
+                }
+                String q = URLEncoder.encode((a + " " + t).trim(), "UTF-8");
+                byte[] body = http("https://itunes.apple.com/search?term=" + q + "&entity=song&limit=1");
+                JSONArray r = new JSONObject(new String(body, "UTF-8")).optJSONArray("results");
+                if (r == null || r.length() == 0) return null;
+                String u = r.getJSONObject(0).optString("artworkUrl100", "");
+                if (u.isEmpty()) return null;
+                byte[] img = http(u.replace("100x100", "300x300"));
+                Bitmap b = BitmapFactory.decodeByteArray(img, 0, img.length);
+                if (b != null) {
+                    try (FileOutputStream o = new FileOutputStream(f)) {
+                        o.write(img);
+                    }
+                }
+                return b;
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        byte[] http(String u) throws Exception {
+            HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
+            c.setConnectTimeout(6000);
+            c.setReadTimeout(9000);
+            c.setRequestProperty("User-Agent", "KlikDash/1.0");
+            try {
+                InputStream in = c.getInputStream();
+                ByteArrayOutputStream o = new ByteArrayOutputStream();
+                byte[] b = new byte[8192];
+                int n;
+                while ((n = in.read(b)) > 0) o.write(b, 0, n);
+                in.close();
+                return o.toByteArray();
+            } finally {
+                c.disconnect();
+            }
+        }
+
+        String hash(String s) throws Exception {
+            byte[] d = MessageDigest.getInstance("SHA-1").digest(s.getBytes("UTF-8"));
+            StringBuilder b = new StringBuilder();
+            for (byte x : d) b.append(Integer.toHexString((x & 0xff) + 0x100).substring(1));
+            return b.toString();
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            int w = getWidth(), h = getHeight(), pad = px(8);
+            panel.setColor(PANEL);
+            c.drawRect(0, 0, w, h, panel);
+            float st = frame.getStrokeWidth() / 2f;
+            c.drawRect(st, st, w - st, h - st, frame);
+
+            int cs = Math.min(w - pad * 2, px(128));
+            int cx = (w - cs) / 2, cy = pad;
+            dst.set(cx, cy, cx + cs, cy + cs);
+            if (art != null) {
+                int iw = art.getWidth(), ih = art.getHeight(), side = Math.min(iw, ih);
+                src.set((iw - side) / 2, (ih - side) / 2, (iw + side) / 2, (ih + side) / 2);
+                c.drawBitmap(art, src, dst, null);
+            } else {
+                int col = track.isEmpty() ? PANEL : palette[(track.hashCode() & 0x7fffffff) % palette.length];
+                disc.setStyle(Paint.Style.FILL);
+                disc.setColor(col);
+                c.drawRect(dst, disc);
+                disc.setStyle(Paint.Style.STROKE);
+                disc.setStrokeWidth(px(1));
+                disc.setColor(track.isEmpty() ? LINE : DIM);
+                c.drawRect(dst, disc);
+                ini.setColor(track.isEmpty() ? FAINT : TEXT);
+                Paint.FontMetrics fm = ini.getFontMetrics();
+                String ch = track.isEmpty() ? "BT" : track.substring(0, 1).toUpperCase(ID);
+                c.drawText(ch, cx + cs / 2f, cy + cs / 2f - (fm.ascent + fm.descent) / 2f, ini);
+            }
+
+            float ty = cy + cs + px(28);
+            CharSequence t = TextUtils.ellipsize(track.isEmpty() ? "BT MUSIC" : track, title, w - pad * 2, TextUtils.TruncateAt.END);
+            title.setColor(track.isEmpty() ? FAINT : AMBER);
+            c.drawText(t, 0, t.length(), w / 2f, ty, title);
+            String a = artist.isEmpty() ? (track.isEmpty() ? "HUBUNGKAN PONSEL" : "") : artist;
+            CharSequence as = TextUtils.ellipsize(a, sub, w - pad * 2, TextUtils.TruncateAt.END);
+            sub.setColor(artist.isEmpty() ? DIM : AMBER);
+            c.drawText(as, 0, as.length(), w / 2f, ty + px(20), sub);
+
+            int gap = px(6), bh = px(60);
+            int bw = (w - pad * 2 - gap * 2) / 3;
+            int by = h - pad - bh;
+            rPrev.set(pad, by, pad + bw, by + bh);
+            rPlay.set(pad + bw + gap, by, pad + bw * 2 + gap, by + bh);
+            rNext.set(pad + (bw + gap) * 2, by, w - pad, by + bh);
+            key(c, rPrev, 2, held == 2);
+            key(c, rPlay, playing ? 3 : 1, held == 1);
+            key(c, rNext, 4, held == 3);
+        }
+
+        void key(Canvas c, Rect r, int kind, boolean on) {
+            knob.setStyle(Paint.Style.FILL);
+            knob.setColor(on ? AMBER : PANEL);
+            c.drawRect(r, knob);
+            frame.setColor(LINE);
+            c.drawRect(r, frame);
+            knob.setColor(on ? INK : (track.isEmpty() ? FAINT : TEXT));
+            float x = r.exactCenterX(), y = r.exactCenterY();
+            float a = px(8), b = px(10);
+            Path p = new Path();
+            if (kind == 1) {
+                p.moveTo(x - a * .6f, y - b);
+                p.lineTo(x + a, y);
+                p.lineTo(x - a * .6f, y + b);
+                p.close();
+                c.drawPath(p, knob);
+            } else if (kind == 2) {
+                p.moveTo(x + a, y - b);
+                p.lineTo(x - a * .6f, y);
+                p.lineTo(x + a, y + b);
+                p.close();
+                c.drawPath(p, knob);
+                c.drawRect(x + a, y - b, x + a + px(2), y + b, knob);
+            } else if (kind == 3) {
+                c.drawRect(x - px(9), y - b, x - px(3), y + b, knob);
+                c.drawRect(x + px(3), y - b, x + px(9), y + b, knob);
+            } else {
+                p.moveTo(x - a, y - b);
+                p.lineTo(x + a * .6f, y);
+                p.lineTo(x - a, y + b);
+                p.close();
+                c.drawPath(p, knob);
+                c.drawRect(x + a * .6f, y - b, x + a * .6f + px(2), y + b, knob);
+            }
         }
     }
 
