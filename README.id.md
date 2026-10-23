@@ -69,6 +69,11 @@ panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa libra
   diunduh per ayat saat diputar, sementara sisa surahnya diunduh di latar. Tombol **UNDUH** menyimpan satu
   surah utuh sebelum perjalanan; surah yang sudah tersimpan ditandai **OFFLINE**.
 
+**Hemat Daya (HEMAT DAYA)**
+- Menampilkan aplikasi pihak ketiga, dengan yang sedang berjalan di latar paling atas, dan melarang
+  masing-masing berjalan di latar dengan sekali ketuk. Aplikasinya tetap terpasang dan bisa dibuka seperti
+  biasa. Aplikasi sistem, Maps, Waze, dan Zlink tidak pernah ditampilkan. Butuh USB debugging aktif.
+
 **Penyetelan otomatis saat menyala** (lihat [Cara kerja khusus firmware](#cara-kerja-khusus-firmware))
 - ksmd dimatikan setiap boot.
 - Kalau Zlink (CarPlay/AA nirkabel) membuka tampilannya sendiri dalam 3 menit pertama setelah boot atau
@@ -121,7 +126,8 @@ klikdash/
 │   ├── QuranActivity.java    tampilan mushaf + pemutar
 │   ├── QuranService.java     pemutar murattal di latar
 │   ├── QuranData.java        pemuat assets/quran.txt
-│   └── Tweaks.java           perintah sistem lewat ADB lokal (ksmd, sembunyikan Zlink)
+│   ├── PowerActivity.java    Hemat Daya: larang aplikasi berjalan di latar
+│   └── Tweaks.java           perintah sistem lewat ADB lokal (ksmd, sembunyikan Zlink, launcher, appops)
 ├── res/                      tema, ikon vektor
 ├── assets/
 │   ├── quran.txt             6.236 ayat (Arab, Latin, terjemahan), 3,1 MB — TIDAK ada di repo, dibangun sendiri
@@ -209,13 +215,15 @@ Skrip ini juga membersihkan teks:
 ## Perubahan pada headunit
 
 Semua yang diubah KlikDash, dan cara mengembalikannya. **KlikDash tidak menghapus atau mematikan aplikasi apa
-pun**; ia hanya mengganti tampilan home.
+pun**; ia mengganti tampilan home, dan fitur Hemat Daya (opsional) hanya melarang aplikasi pilihan Anda berjalan
+di latar.
 
 | Perubahan | Kapan | Cara mengembalikan |
 |---|---|---|
 | Launcher default `persist.nwd.launcher.default=com.klikdash.app` (NWD) dan preferensi HOME | Saat Anda mengetuk **JADIKAN TAMPILAN UTAMA** | **LAUNCHER BAWAAN** di halaman Semua aplikasi, atau `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
 | ksmd dimatikan | Setiap boot, selama KlikDash jadi tampilan home (butuh ADB aktif) | Kembali ke launcher bawaan atau uninstall KlikDash, lalu reboot |
 | Zlink dikembalikan ke home bila terbuka sendiri | 3 menit pertama setelah boot atau bangun dari tidur | Sama seperti di atas |
+| Aplikasi dilarang jalan di latar (`appops RUN_ANY_IN_BACKGROUND/RUN_IN_BACKGROUND ignore`) | Hanya untuk aplikasi yang Anda nyalakan di **HEMAT DAYA** | Ketuk aplikasinya lagi, atau **KEMBALIKAN SEMUA** |
 
 Launcher NWD lama **tidak dihapus**. Prosesnya tetap ada karena juga menangani info mobil dari CAN.
 

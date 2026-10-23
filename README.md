@@ -70,6 +70,11 @@ without Gradle. The app's own interface is in Indonesian.
   and the audio is downloaded per verse as it plays, with the rest of the surah fetched in the background.
   The **DOWNLOAD** button saves a whole surah before a trip; saved surahs are marked **OFFLINE**.
 
+**Power saver (HEMAT DAYA)**
+- Lists third-party apps, with the ones running in the background now at the top, and lets you block each one
+  from running in the background with a single tap. The apps stay installed and still open normally. System
+  apps, Maps, Waze and Zlink are never listed. Needs USB debugging on.
+
 **Automatic tweaks on startup** (see [Firmware-specific behaviour](#firmware-specific-behaviour))
 - ksmd is turned off on every boot.
 - If Zlink (wireless CarPlay/Android Auto) opens its own screen within the first 3 minutes after boot or
@@ -121,7 +126,8 @@ klikdash/
 │   ├── QuranActivity.java    mushaf view + player
 │   ├── QuranService.java     background recitation player
 │   ├── QuranData.java        loader for assets/quran.txt
-│   └── Tweaks.java           system commands through local ADB (ksmd, hide Zlink)
+│   ├── PowerActivity.java    power saver: block apps from running in the background
+│   └── Tweaks.java           system commands through local ADB (ksmd, hide Zlink, launcher, appops)
 ├── res/                      theme, vector icons
 ├── assets/
 │   ├── quran.txt             6,236 verses (Arabic, Latin, translation), 3.1 MB — NOT in the repo, build it yourself
@@ -208,14 +214,15 @@ The script also cleans the text:
 
 ## Changes made on the headunit
 
-Everything KlikDash changes, and how to undo it. **KlikDash does not uninstall or disable any apps**; it only
-replaces the home screen.
+Everything KlikDash changes, and how to undo it. **KlikDash does not uninstall or disable any apps**; it
+replaces the home screen, and the optional power saver only stops apps you pick from running in the background.
 
 | Change | When | How to undo it |
 |---|---|---|
 | Default launcher `persist.nwd.launcher.default=com.klikdash.app` (NWD) and HOME preference | When you tap **JADIKAN TAMPILAN UTAMA** | **LAUNCHER BAWAAN** on the All apps page, or `adb shell setprop persist.nwd.launcher.default com.android.launcher` |
 | ksmd turned off | Every boot, while KlikDash is the home screen (needs ADB on) | Switch back to the stock launcher or uninstall KlikDash, then reboot |
 | Zlink sent back to home when it opens by itself | First 3 minutes after boot or wake-up | Same as above |
+| Apps blocked from running in the background (`appops RUN_ANY_IN_BACKGROUND/RUN_IN_BACKGROUND ignore`) | Only for apps you switch on in **HEMAT DAYA** | Tap the app again, or **KEMBALIKAN SEMUA** |
 
 The old NWD launcher is **not removed**. Its process stays because it also handles car info from the CAN bus.
 

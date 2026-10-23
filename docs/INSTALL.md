@@ -94,6 +94,23 @@ working.**
 - **All apps:** tap the **SEMUA** tile. Long-press an app there to open its info (for example to uninstall).
 - **CPU temperature** at the top left turns amber from 70 °C and red ("PANAS", hot) from 85 °C.
 
+## Power saver (Hemat Daya)
+
+Headunit running hot or slow? Some apps, such as Netflix or Spotify, can keep running in the background even
+when you are not using them. To stop that:
+
+1. Tap **SEMUA**, then **HEMAT DAYA** at the top right.
+2. Tap **BATASI** ("restrict") on any app that does not need to run in the background. It changes to
+   **DIBATASI** ("restricted"). Apps that are *SEDANG BERJALAN DI LATAR* (running in the background now) are
+   listed first.
+
+![The Hemat Daya screen](img/power.png)
+
+The app is **not removed** and still opens as usual; it just cannot run on its own in the background. Tap it
+again to allow it, or **KEMBALIKAN SEMUA** ("restore all") to undo everything. System apps, Maps, Waze and Zlink
+are deliberately left out so navigation and CarPlay keep working. This needs USB debugging on, like the
+home-screen button.
+
 ## Switch back to the stock launcher
 
 Tap **SEMUA**, then **LAUNCHER BAWAAN** ("stock launcher") at the top right, and confirm. KlikDash stays

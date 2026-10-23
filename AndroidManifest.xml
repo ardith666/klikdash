@@ -45,6 +45,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".PowerActivity"
+            android:label="Hemat Daya"
+            android:taskAffinity="com.klikdash.app.power"
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|locale|layoutDirection|fontScale" />
+
         <service
             android:name=".QuranService"
             android:exported="false" />

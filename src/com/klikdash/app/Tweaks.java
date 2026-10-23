@@ -73,24 +73,28 @@ final class Tweaks {
         }
     }
 
-    private static void shell(String cmd) throws IOException {
+    private static void shell(String cmd) throws IOException { exec(cmd); }
+
+    /** Jalankan perintah lewat ADB lokal dan kembalikan keluarannya. Jalankan di thread latar. */
+    static String exec(String cmd) throws IOException {
         try (Socket s = new Socket()) {
             s.connect(new InetSocketAddress("127.0.0.1", 5555), 3000);
-            s.setSoTimeout(5000);
+            s.setSoTimeout(15000);
             DataInputStream in = new DataInputStream(s.getInputStream());
             OutputStream out = s.getOutputStream();
 
             send(out, CNXN, 0x01000000, 4096, "host::klikdash\0");
-            if (recv(in)[0] != CNXN) throw new IOException("adbd meminta autentikasi");
+            if (recv(in, null)[0] != CNXN) throw new IOException("adbd meminta autentikasi");
 
             send(out, OPEN, 1, 0, "shell:" + cmd + "\0");
+            java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
             while (true) {
-                int[] m = recv(in);
+                int[] m = recv(in, output);
                 if (m[0] == WRTE) {
                     send(out, OKAY, 1, m[1], "");
                 } else if (m[0] == CLSE) {
                     send(out, CLSE, 1, m[1], "");
-                    return;
+                    return new String(output.toByteArray(), StandardCharsets.UTF_8);
                 }
             }
         }
@@ -106,13 +110,15 @@ final class Tweaks {
         out.flush();
     }
 
-    /** {command, arg0, arg1}; payload dibaca lalu dibuang. */
-    private static int[] recv(DataInputStream in) throws IOException {
+    /** {command, arg0, arg1}; payload WRTE ditambahkan ke {@code sink} bila ada, selain itu dibuang. */
+    private static int[] recv(DataInputStream in, java.io.ByteArrayOutputStream sink) throws IOException {
         byte[] raw = new byte[24];
         in.readFully(raw);
         ByteBuffer h = ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN);
         int cmd = h.getInt(), a0 = h.getInt(), a1 = h.getInt(), len = h.getInt();
-        in.readFully(new byte[len]);
+        byte[] data = new byte[len];
+        in.readFully(data);
+        if (sink != null && cmd == WRTE) sink.write(data, 0, len);
         return new int[]{cmd, a0, a1};
     }
 }

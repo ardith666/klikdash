@@ -741,6 +741,12 @@ public class HomeActivity extends Activity {
         head.addView(drawerCount, cl);
         head.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
 
+        Button power = new Button("HEMAT DAYA", false);
+        power.setOnClickListener(v -> startActivity(new Intent(this, PowerActivity.class)));
+        LinearLayout.LayoutParams pwl = new LinearLayout.LayoutParams(px(190), px(56));
+        pwl.rightMargin = px(12);
+        head.addView(power, pwl);
+
         restore = new Button("LAUNCHER BAWAAN", false);
         restore.setOnClickListener(v -> restoreStockLauncher());
         restore.setVisibility(View.GONE);

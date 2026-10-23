@@ -91,6 +91,22 @@ tidak berfungsi.**
   (misalnya untuk uninstall).
 - **Suhu CPU** di kiri atas berwarna amber mulai 70 °C dan merah ("PANAS") mulai 85 °C.
 
+## Hemat Daya
+
+Headunit terasa panas atau lambat? Sebagian aplikasi, misalnya Netflix atau Spotify, bisa berjalan diam-diam di
+latar walaupun tidak dibuka. Untuk membatasinya:
+
+1. Ketuk **SEMUA**, lalu **HEMAT DAYA** di kanan atas.
+2. Ketuk **BATASI** di aplikasi yang tidak perlu jalan di latar. Tulisannya berubah menjadi **DIBATASI**.
+   Aplikasi yang *SEDANG BERJALAN DI LATAR* tampil paling atas.
+
+![Layar Hemat Daya](img/power.png)
+
+Aplikasinya **tidak dihapus** dan tetap bisa dibuka seperti biasa; ia hanya tidak bisa jalan sendiri di
+belakang. Ketuk lagi untuk mengizinkan, atau **KEMBALIKAN SEMUA** untuk mengembalikan semuanya. Aplikasi
+sistem, Maps, Waze, dan Zlink sengaja tidak ditampilkan supaya navigasi dan CarPlay tetap jalan. Fitur ini butuh
+USB debugging aktif, sama seperti tombol tampilan utama.
+
 ## Kembali ke launcher bawaan
 
 Ketuk **SEMUA**, lalu ketuk **LAUNCHER BAWAAN** di kanan atas, dan konfirmasi. KlikDash tetap terpasang dan
