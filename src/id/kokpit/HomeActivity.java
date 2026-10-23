@@ -14,6 +14,8 @@ import android.graphics.ColorFilter;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
@@ -26,6 +28,7 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.os.UserManager;
@@ -95,7 +98,9 @@ public class HomeActivity extends Activity {
     float dp, sp;
     Typeface fHeavy, fBold, fMed, fMono, fMonoBold;
     ColorFilter mono;
+    ColorFilter pressed;
     SharedPreferences prefs;
+    boolean colorIcons;
 
     final ComponentName[] slotCn = new ComponentName[SLOTS];
     final String[] slotLabel = new String[SLOTS];
@@ -203,7 +208,7 @@ public class HomeActivity extends Activity {
         fMono = font("mono.ttf", "'wdth' 100, 'wght' 400");
         fMonoBold = font("mono.ttf", "'wdth' 100, 'wght' 700");
 
-        // Ikon dibuat monokrom hangat; warna asli muncul saat ditekan.
+        // Ikon berwarna normal; jadi amber saat ditekan (beri glow/warna aksen).
         ColorMatrix cm = new ColorMatrix();
         cm.setSaturation(0f);
         cm.postConcat(new ColorMatrix(new float[]{
@@ -212,13 +217,23 @@ public class HomeActivity extends Activity {
                 0, 0, .82f, 0, 0,
                 0, 0, 0, 1f, 0}));
         mono = new ColorMatrixColorFilter(cm);
+        pressed = new PorterDuffColorFilter(AMBER, PorterDuff.Mode.SRC_ATOP);
 
+        prefs = getSharedPreferences("kokpit", MODE_PRIVATE);
+        colorIcons = prefs.getBoolean("colorIcons", true);
         loadSlots();
         loadApps();
         loadLocation();
 
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(BG);
+        root.setOnLongClickListener(v -> {
+            colorIcons = !colorIcons;
+            prefs.edit().putBoolean("colorIcons", colorIcons).apply();
+            Toast.makeText(this, colorIcons ? "Ikon: berwarna" : "Ikon: monokrom", Toast.LENGTH_SHORT).show();
+            loadApps();
+            for (Tile t : tiles) if (t != null) t.invalidate();
+            return true;
+        });
         root.setFitsSystemWindows(true);
         home = buildHome();
         drawer = buildDrawer();
@@ -700,8 +715,12 @@ public class HomeActivity extends Activity {
 
     Typeface font(String file, String axes) {
         try {
-            Typeface t = new Typeface.Builder(getAssets(), file).setFontVariationSettings(axes).build();
-            if (t != null) return t;
+            if (Build.VERSION.SDK_INT >= 26) {
+                Typeface t = new Typeface.Builder(getAssets(), file).setFontVariationSettings(axes).build();
+                if (t != null) return t;
+            } else {
+                return Typeface.createFromAsset(getAssets(), file);
+            }
         } catch (Exception ignored) { }
         return Typeface.DEFAULT_BOLD;
     }
@@ -723,8 +742,17 @@ public class HomeActivity extends Activity {
 
     void drawIcon(Canvas c, Drawable d, int left, int top, int size, boolean color) {
         d.setBounds(left, top, left + size, top + size);
-        d.setColorFilter(color ? null : mono);
-        d.setAlpha(color ? 255 : 225);
+        if (color) {
+            d.setColorFilter(pressed);
+            d.setAlpha(255);
+        } else {
+            if (colorIcons) {
+                d.setColorFilter(null);
+            } else {
+                d.setColorFilter(mono);
+            }
+            d.setAlpha(225);
+        }
         d.draw(c);
     }
 

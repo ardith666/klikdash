@@ -11,7 +11,9 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"></a>
+  <a href="https://github.com/ashafizullah/klikdash/releases/latest"><img src="https://img.shields.io/github/v/release/ashafizullah/klikdash?label=release" alt="Release"></a>
+  <a href="https://github.com/ashafizullah/klikdash/releases"><img src="https://img.shields.io/github/downloads/ashafizullah/klikdash/total?color=1fa77a" alt="Downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ashafizullah/klikdash?color=blue" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/Android-10-3DDC84?logo=android&logoColor=white" alt="Android 10">
   <img src="https://img.shields.io/badge/headunit-NWD%20K2401%20%C2%B7%201280%C3%97720-lightgrey" alt="Headunit NWD K2401, 1280x720">
   <br>
@@ -66,6 +68,9 @@ without Gradle. The app's own interface is in Indonesian.
 - Playback modes: Continue (on to the next surah), Repeat surah, or Repeat verse. The last position is saved.
 - Audio keeps playing in the background (foreground service + MediaSession), so it can be controlled from
   the notification and from media or steering-wheel buttons.
+- Nothing is bundled in the APK: the text is downloaded once inside the app (about 6 MB, from equran.id),
+  and the audio is downloaded per verse as it plays, with the rest of the surah fetched in the background.
+  The **DOWNLOAD** button saves a whole surah before a trip; saved surahs are marked **OFFLINE**.
 
 **Automatic tweaks on startup** (see [Firmware-specific behaviour](#firmware-specific-behaviour))
 - ksmd is turned off on every boot.
@@ -86,6 +91,21 @@ headunit-specific parts (default launcher, sleep/wake, Zlink, ksmd) target NWD f
 
 Zlink was used with wireless CarPlay on an iPhone; Android Auto has not been tested. Reports from other headunits are
 welcome: please open an issue with the model, screen size and Android version.
+
+## Install
+
+1. Download `klikdash-<version>.apk` from [Releases](https://github.com/ashafizullah/klikdash/releases/latest).
+2. Install it: copy it to a USB stick and open it with the headunit's file manager, or run
+   `adb install klikdash-<version>.apk`.
+3. Make it the home app: press Home and pick **KlikDash** › *Always*. NWD firmware forces its own launcher,
+   so on NWD headunits also run (one time, over ADB):
+   ```bash
+   adb shell setprop persist.nwd.launcher.default id.kokpit
+   adb shell cmd package set-home-activity id.kokpit/.HomeActivity
+   ```
+4. Allow location when asked (for prayer times).
+5. With internet on, open **Al-Qur'an** once and tap **UNDUH TEKS** to download the text.
+6. Go through the [test-before-you-drive checklist](#disclaimer) with the car parked.
 
 ## Structure
 
@@ -134,6 +154,7 @@ instructions if that file is missing.
 ```bash
 adb connect 192.168.1.17:5555
 ./build.sh              # build only → build/klikdash.apk
+./build.sh release      # public release APK without the Quran text → build/klikdash-<version>.apk
 ./build.sh install      # build, install, grant location, make it the home app
 DEVICE=1.2.3.4:5555 ./build.sh install   # if the headunit's IP changes
 ```
@@ -143,8 +164,9 @@ Always install with `./build.sh install`. With a plain `adb install`, the home p
 
 ## Recitation audio
 
-The audio is not part of the APK. It lives on the headunit at
-`/sdcard/Android/data/id.kokpit/files/quran/audio/SSSAAA.mp3` (1.6 GB).
+The app downloads the audio by itself (see Features). To fill all 114 surahs at once (1.6 GB) without
+using the headunit's connection, download them on a computer and push them over ADB. Files live at
+`/sdcard/Android/data/id.kokpit/files/quran/audio/SSSAAA.mp3`.
 
 ```bash
 # download (once)
@@ -165,9 +187,11 @@ The basmala before verse 1 (except Al-Fatihah and At-Taubah) uses `001001.mp3`.
 
 ## Quran text
 
-The Kemenag mushaf text and translation are **not included in this repo**. The distribution of mushaf in
-Indonesia is regulated by PMA 44/2016 (verification by LPMQ), and the script below also adjusts a few marks
-so the Amiri font can display them. Download and build it yourself for personal use:
+The Kemenag mushaf text and translation are **not included in this repo or in the release APK**. The
+distribution of mushaf in Indonesia is regulated by PMA 44/2016 (verification by LPMQ). The app downloads the
+text from equran.id on first use and cleans it the same way as `tools/build_quran.py` (byte-identical output):
+it adjusts a few marks so the Amiri font can display them. For your own developer build you can embed it
+instead (`./build.sh` includes `assets/quran.txt` when present; `./build.sh release` never does):
 
 ```bash
 mkdir -p ../quran-data/text

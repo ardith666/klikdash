@@ -2,33 +2,36 @@
 # Build KlikDash tanpa Gradle: aapt2 -> javac -> d8 -> zipalign -> apksigner.
 # Pakai: ./build.sh            (build saja)
 #        ./build.sh install    (build + pasang ke headunit, jadikan launcher default)
+#        ./build.sh release    (APK rilis publik tanpa teks Al-Qur'an → build/klikdash-<versi>.apk)
 set -euo pipefail
 cd "$(dirname "$0")"
+
+VERSION_NAME=1.0.0
+VERSION_CODE=1
 
 SDK=${ANDROID_HOME:-$HOME/Library/Android/sdk}
 BT=$SDK/build-tools/36.0.0
 JAR=$SDK/platforms/android-35/android.jar
 DEVICE=${DEVICE:-192.168.1.17:5555}
-
-if [ ! -s assets/quran.txt ]; then
-    echo "assets/quran.txt belum ada (tidak disertakan di repo). Bangun dulu:" >&2
-    echo "  mkdir -p ../quran-data/text" >&2
-    echo "  for i in \$(seq 1 114); do curl -fsS -o ../quran-data/text/\$i.json https://equran.id/api/v2/surat/\$i; done" >&2
-    echo "  python3 -I tools/build_quran.py ../quran-data/text assets/quran.txt" >&2
-    exit 1
-fi
+MODE=${1:-}
 
 rm -rf build
 mkdir -p build/classes build/dex build/gen
 
 "$BT/aapt2" compile --dir res -o build/res.zip
-"$BT/aapt2" link -o build/base.apk -I "$JAR" --manifest AndroidManifest.xml -A assets -0 ttf \
-    --min-sdk-version 29 --target-sdk-version 29 --version-code 1 --version-name 1.0 \
+# Teks Al-Qur'an tidak pernah ikut APK rilis (aplikasi mengunduhnya sendiri dari equran.id).
+# Build pengembang menyertakan assets/quran.txt bila ada, supaya headunit sendiri langsung offline.
+mkdir -p build/assets
+cp -R assets/. build/assets/
+if [ "$MODE" = "release" ] || [ ! -s assets/quran.txt ]; then rm -f build/assets/quran.txt; fi
+
+"$BT/aapt2" link -o build/base.apk -I "$JAR" --manifest AndroidManifest.xml -A build/assets -0 ttf \
+    --min-sdk-version 25 --target-sdk-version 25 --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" \
     --java build/gen build/res.zip
 
 javac --release 8 -encoding UTF-8 -classpath "$JAR" \
     -d build/classes $(find src build/gen -name '*.java')
-"$BT/d8" --release --min-api 29 --lib "$JAR" --output build/dex $(find build/classes -name '*.class')
+"$BT/d8" --release --min-api 25 --lib "$JAR" --output build/dex $(find build/classes -name '*.class')
 
 cp build/base.apk build/unaligned.apk
 (cd build/dex && zip -q ../unaligned.apk classes.dex)
@@ -60,9 +63,15 @@ fi
 "$BT/apksigner" sign --ks klikdash.keystore --ks-pass env:KS_PASS --key-pass env:KS_PASS \
     --out build/klikdash.apk build/aligned.apk
 
-ls -lh build/klikdash.apk
+if [ "$MODE" = "release" ]; then
+    cp build/klikdash.apk "build/klikdash-$VERSION_NAME.apk"
+    unzip -l "build/klikdash-$VERSION_NAME.apk" | grep -q "assets/quran.txt" && { echo "quran.txt ikut di APK rilis!" >&2; exit 1; }
+    ls -lh "build/klikdash-$VERSION_NAME.apk"
+else
+    ls -lh build/klikdash.apk
+fi
 
-if [ "${1:-}" = "install" ]; then
+if [ "$MODE" = "install" ]; then
     adb -s "$DEVICE" install -r build/klikdash.apk
     adb -s "$DEVICE" shell pm grant id.kokpit android.permission.ACCESS_FINE_LOCATION
     adb -s "$DEVICE" shell pm grant id.kokpit android.permission.ACCESS_COARSE_LOCATION
