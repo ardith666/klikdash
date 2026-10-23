@@ -36,8 +36,11 @@ Launcher ringan untuk headunit mobil NWD. Branch `android-7` mem-port KlikDash k
 - [x] README: bagian fork K2001N, tabel perbedaan, demo video (user-attachments).
 - [x] GPS ZS1011: `SystemNavMode = 2` + reboot → fix `acc=2` diterima, update tiap ±1 dtk.
 - [x] Ganti Gboard 14.2 (76 MB) → `LatinImeGoogle` system 5.1.18 (23 MB); warning GMS hilang.
-- [x] GMS + GSF aktif, Play Store/Maps/YouTube tetap disabled.
+- [x] GMS + GSF sempat diaktifkan untuk uji CarLink wireless; Play Store/Maps/YouTube tetap disabled.
 - [ ] Verifikasi widget jadwal sholat + GPS speed saat kendaraan benar-benar bergerak.
+- [x] CarLink 1.0.6 + data/odex dihapus; GMS/GSF kembali disabled; GPS + keyboard dipertahankan.
+- [x] AOT `speed` untuk `id.kokpit`; jank turun 14,5% → 2,9%, PSS 19,5 MB.
+- [x] `./build.sh install` otomatis AOT + verifikasi `compilation_filter=speed`.
 
 ## Learnings
 - [2026-10-23] Volume headunit asli ada di settings MCU (`mcu_*`), bukan `STREAM_MUSIC`; `input keyevent 24/25` mengubah stream notifikasi.
@@ -51,6 +54,7 @@ Launcher ringan untuk headunit mobil NWD. Branch `android-7` mem-port KlikDash k
 - [2026-10-23] `sys.gps.nmea.time` bisa stale walau fix valid; verifikasi lewat `logcat` `nwdapp_GpsSpeedParser` / `Location[gps ... acc=2]` dan `dumpsys location`.
 - [2026-10-23] Warning "enable Google Play services" berasal dari Gboard update (data app 76 MB), bukan CarLink; GMS/GSF memang disabled.
 - [2026-10-23] CarLink freeze bukan GPU/interpret-only: main thread blokir `BluetoothAdapter.getBondedDevices()` / `getBluetoothClass()` ke BT service. 5 device paired; BT off turunkan frame 3.600 ms → ~100–150 ms. `removeBond()` balik `false`; Settings tidak menampilkan daftar paired.
+- [2026-10-23] Label MEM/CPU KlikDash = total perangkat (ActivityManager + `/proc/stat`), bukan pemakaian app; KlikDash sendiri ~0% CPU dan PSS ~19,5 MB.
 
 ## Files
 | File | Purpose | Last Changed |
@@ -66,5 +70,4 @@ Launcher ringan untuk headunit mobil NWD. Branch `android-7` mem-port KlikDash k
 - Uji threshold warna speed saat berkendara (80/100/120/150).
 - Cek tampilan README di GitHub: video demo harus muncul sebagai player inline.
 - Tes widget jadwal sholat + GPS speed sambil jalan; pastikan lat/lon dan speed berubah setelah fix `acc=2`.
-- Pantau CPU/RAM setelah GMS aktif; jika headunit makin berat, `pm disable-user --user 0 com.google.android.gms` (dan GSF).
-- CarLink wireless: BT masih ON dengan 5 device paired; jika freeze lagi, matikan BT atau selesaikan unpair lewat vendor BC03 (API `removeBond()` tidak jalan).
+- GMS/GSF sudah di-disable lagi; CarLink dihapus, jadi jangan aktifkan tanpa kebutuhan.

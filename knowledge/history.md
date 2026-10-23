@@ -20,3 +20,19 @@
   - Reboot: 2× (config GPS HAL dibaca saat boot; ADB TCP 5555 persist)
   - Note: CarLink freeze = BT binder `getBondedDevices()`; BT off turunkan 3.600 ms → ~100–150 ms; `removeBond()` vendor balik `false`
   - Next: tes widget jadwal sholat + speed saat kendaraan bergerak; pantau beban GMS; unpair BC03 belum selesai
+- [2026-10-23 18:30] Hapus CarLink + restore Google services:
+  - Code/Config: `pm uninstall com.carlink.app`; hapus `/sdcard/{b,m,s,u,u2}.xml`; `pm disable-user --user 0 com.google.android.gms com.google.android.gsf`
+  - Status: ✅ CarLink 1.0.6 + data/odex (66 MB) hilang; helper `com.opencode.unpair` sudah tidak ada; XML dump hilang; BT tetap ON; GPS `SystemNavMode=2` dan keyboard 5.1.18 dipertahankan
+  - Decision: hapus karena BT vendor stub/rusak (`removeBond=false`, paired list tidak bisa dikelola); wireless tidak bisa diandalkan
+  - Reason: CarLink freeze dari BT binder; GMS/GSF hanya diaktifkan untuk wireless CarLink
+  - Cleanup: artefak Mac (`CarLink-1.0.6.apk`, `jadxout`, screenshot, `unpair`) dihapus; backup `zsgps.conf.bak` disimpan
+  - Next: tidak ada; CarPlay/AA pakai USB-only atau hardware dongle jika wireless wajib
+- [2026-10-23 18:45] AOT compile KlikDash:
+  - Config: `cmd package compile -m speed -f id.kokpit` (sebelumnya ROM default `interpret-only`)
+  - Status: ✅ odex 300 KB; `gfxinfo` jank 14,5% → 2,9%, 50th 8→7 ms, 90th 22→10 ms, 99th 97→20 ms; PSS 19,5 MB
+  - Reason: app Java murni 1,7 MB; AOT menghilangkan jank interpreter tanpa ubah kode
+  - Next: compile ulang setelah update/reinstall KlikDash
+- [2026-10-23 18:50] `build.sh install` AOT otomatis:
+  - Code: `build.sh` mode `install` menjalankan `cmd package compile -m speed -f id.kokpit` + verifikasi `compilation_filter=speed`
+  - Status: ✅ build gagal jika AOT tidak aktif
+  - Reason: ROM default `interpret-only`; update/reinstall menghapus odex

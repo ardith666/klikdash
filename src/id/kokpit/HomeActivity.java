@@ -3,7 +3,10 @@ package id.kokpit;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ActivityManager;
+import android.app.Dialog;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -51,10 +54,12 @@ import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.AbsListView;
 import android.widget.BaseAdapter;
 import android.widget.FrameLayout;
 import android.widget.GridView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -84,7 +89,7 @@ import java.util.TimeZone;
 /** KlikDash: launcher ringan untuk headunit 1280x720. Tanpa animasi, tanpa library. */
 public class HomeActivity extends Activity {
 
-    static final int BG = 0xFF0B0B0A, PANEL = 0xFF151513, LINE = 0xFF2B2A26, TEXT = 0xFFECE6D8,
+    static int BG = 0xFF0B0B0A, PANEL = 0xFF151513, LINE = 0xFF2B2A26, TEXT = 0xFFECE6D8,
             DIM = 0xFF8A8478, FAINT = 0xFF4A4740, AMBER = 0xFFFFB000, INK = 0xFF0B0B0A;
 
     static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
@@ -121,6 +126,11 @@ public class HomeActivity extends Activity {
     ColorFilter mono;
     ColorFilter pressed;
     SharedPreferences prefs;
+    Theme theme;
+    boolean themeLight;
+    FrameLayout rootView;
+    ImageView themeImage;
+    View themeScrim;
     boolean colorIcons;
 
     final ComponentName[] slotCn = new ComponentName[SLOTS];
@@ -157,7 +167,7 @@ public class HomeActivity extends Activity {
     long cpuTotal, cpuIdle;
 
     // Beban CPU/RAM + suhu headunit; dibaca tiap 5 detik selama home tampil.
-    static final int HOT = 0xFFFF5A3C;
+    static int HOT = 0xFFFF5A3C;
     final String cpuZone = findCpuZone();
     final Runnable perfTick = new Runnable() {
         @Override public void run() {
@@ -315,12 +325,9 @@ public class HomeActivity extends Activity {
         // Direct boot: saat boot penyimpanan biasa (CE) masih terkunci beberapa detik, dan firmware hanya bisa
         // memilih launcher yang directBootAware. Maka pengaturan disimpan di penyimpanan DE.
         prefs = openPrefs();
-
-        fHeavy = font("display.ttf", "'opsz' 72, 'wght' 800");
-        fBold = font("display.ttf", "'opsz' 36, 'wght' 700");
-        fMed = font("display.ttf", "'opsz' 36, 'wght' 500");
-        fMono = font("mono.ttf", "'wdth' 100, 'wght' 400");
-        fMonoBold = font("mono.ttf", "'wdth' 100, 'wght' 700");
+        themeLight = prefs.getBoolean("themeLight", false);
+        theme = Theme.get(prefs.getInt("theme", 1));
+        applyTheme();
 
         // Ikon berwarna normal; jadi amber saat ditekan (beri glow/warna aksen).
         ColorMatrix cm = new ColorMatrix();
@@ -338,7 +345,8 @@ public class HomeActivity extends Activity {
         loadApps();
         loadLocation();
 
-        FrameLayout root = new FrameLayout(this);
+        rootView = new FrameLayout(this);
+        FrameLayout root = rootView;
         root.setOnLongClickListener(v -> {
             colorIcons = !colorIcons;
             prefs.edit().putBoolean("colorIcons", colorIcons).apply();
@@ -348,12 +356,19 @@ public class HomeActivity extends Activity {
             return true;
         });
         root.setFitsSystemWindows(true);
+        root.setBackgroundColor(BG);
+        themeImage = new ImageView(this);
+        themeImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        root.addView(themeImage, MATCH, MATCH);
+        themeScrim = new View(this);
+        root.addView(themeScrim, MATCH, MATCH);
         home = buildHome();
         drawer = buildDrawer();
         drawer.setVisibility(View.GONE);
         root.addView(home, MATCH, MATCH);
         root.addView(drawer, MATCH, MATCH);
         setContentView(root);
+        loadThemeBackground();
 
         volPopup = text("", fMonoBold, 22, AMBER);
         volPopup.setPadding(px(26), px(12), px(26), px(12));
@@ -408,8 +423,84 @@ public class HomeActivity extends Activity {
         Tweaks.applyAsync();
     }
 
+    static final int REQ_IMAGE = 701, REQ_STORAGE = 702;
+
     @Override public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
+        if (code == REQ_STORAGE) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) pickThemeImage();
+            else Toast.makeText(this, "Izin storage diperlukan untuk gambar tema", Toast.LENGTH_LONG).show();
+            return;
+        }
         if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) startLocation();
+    }
+
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != REQ_IMAGE || result != RESULT_OK || data == null || data.getData() == null) return;
+        final Uri uri = data.getData();
+        File old = ThemeImages.find(this, theme.id, themeLight);
+        if (old == null) {
+            importThemeImage(uri);
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Timpa gambar tema?")
+                .setMessage(old.getName())
+                .setPositiveButton("TIMPA", (d, w) -> importThemeImage(uri))
+                .setNegativeButton("Batal", null)
+                .show();
+    }
+
+    void importThemeImage(Uri uri) {
+        try {
+            ThemeImages.importImage(this, uri, theme.id, themeLight);
+            loadThemeBackground();
+            Toast.makeText(this, "Gambar tema tersimpan", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Gagal menyimpan gambar", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    void pickThemeImage() {
+        if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_STORAGE);
+            return;
+        }
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                .addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("image/*");
+        startActivityForResult(i, REQ_IMAGE);
+    }
+
+    void loadThemeBackground() {
+        if (themeImage == null) return;
+        final int id = theme.id;
+        final boolean light = themeLight;
+        new Thread(() -> {
+            Bitmap b = ThemeImages.load(this, id, light);
+            runOnUiThread(() -> {
+                if (isFinishing() || themeImage == null) return;
+                themeImage.setImageBitmap(b);
+                themeImage.setVisibility(b == null ? View.GONE : View.VISIBLE);
+                themeScrim.setBackgroundColor(b == null ? 0 : theme.scrim(themeLight));
+            });
+        }, "theme-bg").start();
+    }
+
+    void showThemeFolder() {
+        String path = ThemeImages.folder(this).getAbsolutePath();
+        new AlertDialog.Builder(this)
+                .setTitle("FOLDER GAMBAR")
+                .setMessage(path + "\n\nNN-dark.jpg / NN-light.jpg")
+                .setNeutralButton("SALIN PATH", (d, w) -> {
+                    ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    cm.setPrimaryClip(ClipData.newPlainText("KlikDash themes", path));
+                    Toast.makeText(this, "Path disalin", Toast.LENGTH_SHORT).show();
+                })
+                .setPositiveButton("TUTUP", null)
+                .show();
     }
 
     final Runnable onQuran = () -> { for (Tile t : tiles) if (t != null) t.invalidate(); };
@@ -478,13 +569,48 @@ public class HomeActivity extends Activity {
     // ---------------------------------------------------------------- data
 
     /** Prefs di penyimpanan DE; pindahkan sekali dari CE (versi lama) begitu CE sudah terbuka. */
-    SharedPreferences openPrefs() {
-        Context de = createDeviceProtectedStorageContext();
+    static SharedPreferences openPrefs(Context c) {
+        Context de = c.createDeviceProtectedStorageContext();
         java.io.File df = new java.io.File(de.getDataDir(), "shared_prefs/kokpit.xml");
-        if (!df.exists() && getSystemService(UserManager.class).isUserUnlocked()) {
-            de.moveSharedPreferencesFrom(this, "kokpit");
+        if (!df.exists() && c.getSystemService(UserManager.class).isUserUnlocked()) {
+            de.moveSharedPreferencesFrom(c, "kokpit");
         }
         return de.getSharedPreferences("kokpit", MODE_PRIVATE);
+    }
+
+    SharedPreferences openPrefs() {
+        return openPrefs(this);
+    }
+
+    static void applyPalette(Theme t, boolean light) {
+        Theme.P p = t.palette(light);
+        BG = p.bg;
+        PANEL = Theme.withAlpha(p.panel, t.panelAlpha);
+        LINE = p.line;
+        TEXT = p.text;
+        DIM = p.dim;
+        FAINT = p.faint;
+        AMBER = p.amber;
+        INK = p.ink;
+        HOT = p.hot;
+    }
+
+    void applyTheme() {
+        applyPalette(theme, themeLight);
+        fHeavy = font(theme.display, "'opsz' 72, 'wght' 800");
+        fBold = font(theme.display, "'opsz' 36, 'wght' 700");
+        fMed = font(theme.display, "'opsz' 36, 'wght' 500");
+        fMono = font(theme.mono, "'wdth' 100, 'wght' 400");
+        fMonoBold = font(theme.mono, "'wdth' 100, 'wght' 700");
+        getWindow().setStatusBarColor(BG);
+        getWindow().setNavigationBarColor(BG);
+        getWindow().setBackgroundDrawable(new ColorDrawable(BG));
+        if (Build.VERSION.SDK_INT >= 23) {
+            int flags = getWindow().getDecorView().getSystemUiVisibility();
+            if (themeLight) flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            else flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            getWindow().getDecorView().setSystemUiVisibility(flags);
+        }
     }
 
     /** Setelah CE terbuka: aplikasi non-directBoot (mis. Maps, Al-Qur'an) baru terlihat oleh PackageManager. */
@@ -740,6 +866,14 @@ public class HomeActivity extends Activity {
     // ---------------------------------------------------------------- layout
 
     View buildHome() {
+        for (int i = 0; i < tiles.length; i++) tiles[i] = null;
+        speed = null;
+        if (theme.id == 5) return buildSirkuit();
+        if (theme.id == 10) return buildArkade();
+        return buildInstrument();
+    }
+
+    View buildInstrument() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         int pad = px(24);
@@ -844,10 +978,344 @@ public class HomeActivity extends Activity {
         return row;
     }
 
+    LinearLayout vbox() {
+        LinearLayout v = new LinearLayout(this);
+        v.setOrientation(LinearLayout.VERTICAL);
+        return v;
+    }
+
+    LinearLayout hbox() {
+        LinearLayout v = new LinearLayout(this);
+        v.setOrientation(LinearLayout.HORIZONTAL);
+        return v;
+    }
+
+    void homeFrame(View v, int pad) {
+        int p = px(pad);
+        v.setPadding(p, p, p, p);
+        v.setBackground(new CropMarks());
+    }
+
+    TextView tagView() {
+        tag = text("ARDITH666", fMono, 12, DIM);
+        tag.setLetterSpacing(0.15f);
+        return tag;
+    }
+
+    LinearLayout timeBlock(float clockSize, boolean center, boolean showBar, boolean showDate) {
+        LinearLayout v = vbox();
+        if (center) v.setGravity(Gravity.CENTER_HORIZONTAL);
+        clock = text("00:00", fHeavy, clockSize, TEXT);
+        clock.getPaint().setFakeBoldText(true);
+        clock.setLetterSpacing(-0.01f);
+        if (center) clock.setGravity(Gravity.CENTER);
+        v.addView(clock);
+        if (showBar) {
+            LinearLayout barRow = hbox();
+            barRow.setGravity(Gravity.CENTER_VERTICAL);
+            View bar = new View(this);
+            bar.setBackgroundColor(AMBER);
+            barRow.addView(bar, new LinearLayout.LayoutParams(px(72), px(5)));
+            vol = new VolView();
+            LinearLayout.LayoutParams vvl = new LinearLayout.LayoutParams(px(60), px(24));
+            vvl.leftMargin = px(12);
+            barRow.addView(vol, vvl);
+            LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(WRAP, WRAP);
+            bl.topMargin = px(8);
+            bl.bottomMargin = px(8);
+            v.addView(barRow, bl);
+        } else if (vol == null) {
+            vol = new VolView();
+        }
+        day = text("", fMonoBold, 18, AMBER);
+        day.setLetterSpacing(0.3f);
+        if (center) day.setGravity(Gravity.CENTER);
+        v.addView(day);
+        date = text("", fMed, showDate ? 36 : 24, TEXT);
+        date.setLetterSpacing(0.03f);
+        if (center) date.setGravity(Gravity.CENTER);
+        if (!showDate) date.setVisibility(View.GONE);
+        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(WRAP, WRAP);
+        dl.topMargin = px(4);
+        v.addView(date, dl);
+        return v;
+    }
+
+    LinearLayout speedBlock(int w, int h) {
+        LinearLayout v = vbox();
+        speed = new SpeedView();
+        v.addView(speed, new LinearLayout.LayoutParams(w, h));
+        return v;
+    }
+
+    LinearLayout btBlock(int w, int h, int gravity) {
+        LinearLayout v = vbox();
+        v.setGravity(gravity);
+        btWidget = new BtWidget();
+        v.addView(btWidget, new LinearLayout.LayoutParams(w, h));
+        return v;
+    }
+
+    LinearLayout prayerBlock(int h) {
+        LinearLayout v = vbox();
+        prayerView = new PrayerView();
+        v.addView(prayerView, new LinearLayout.LayoutParams(MATCH, h));
+        return v;
+    }
+
+    LinearLayout gaugeBlock(int h) {
+        LinearLayout v = vbox();
+        gauge = new Gauge();
+        v.addView(gauge, new LinearLayout.LayoutParams(MATCH, h));
+        return v;
+    }
+
+    LinearLayout tileGrid(int cols, int rows, int gapDp, boolean speedInside) {
+        LinearLayout g = vbox();
+        int gap = px(gapDp);
+        for (int r = 0; r < rows; r++) {
+            LinearLayout line = hbox();
+            for (int c = 0; c < cols; c++) {
+                if (speedInside && r == 0 && c < 2) {
+                    if (c == 0) {
+                        speed = new SpeedView();
+                        line.addView(speed, new LinearLayout.LayoutParams(0, MATCH, 2f));
+                    }
+                    continue;
+                }
+                int idx = r * cols + c;
+                if (idx > SLOTS) break;
+                Tile t = new Tile(idx);
+                tiles[idx] = t;
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, MATCH, 1f);
+                if (c > 0) lp.leftMargin = gap;
+                line.addView(t, lp);
+            }
+            LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(MATCH, 0, 1f);
+            if (r > 0) rl.topMargin = gap;
+            g.addView(line, rl);
+        }
+        return g;
+    }
+
+    View dividerV(int marginDp) {
+        View v = new View(this);
+        v.setBackgroundColor(LINE);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px(1), MATCH);
+        lp.leftMargin = px(marginDp);
+        lp.rightMargin = px(marginDp);
+        v.setLayoutParams(lp);
+        return v;
+    }
+
+    View dividerH(int marginDp) {
+        View v = new View(this);
+        v.setBackgroundColor(LINE);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(MATCH, px(1));
+        lp.topMargin = px(marginDp);
+        lp.bottomMargin = px(marginDp);
+        v.setLayoutParams(lp);
+        return v;
+    }
+
+    View buildEditorial() {
+        LinearLayout root = vbox();
+        homeFrame(root, 28);
+
+        LinearLayout main = hbox();
+        LinearLayout left = vbox();
+        left.addView(tagView(), new LinearLayout.LayoutParams(MATCH, WRAP));
+        left.addView(timeBlock(92, false, true, true), new LinearLayout.LayoutParams(MATCH, WRAP));
+        left.addView(prayerBlock(104), new LinearLayout.LayoutParams(MATCH, px(104)));
+        left.addView(gaugeBlock(56), new LinearLayout.LayoutParams(MATCH, px(56)));
+        left.addView(btBlock(px(240), px(150), Gravity.BOTTOM | Gravity.LEFT));
+        main.addView(left, new LinearLayout.LayoutParams(px(380), MATCH));
+        main.addView(dividerV(18));
+        main.addView(tileGrid(3, 4, 12, false), new LinearLayout.LayoutParams(0, MATCH, 1f));
+        root.addView(main, new LinearLayout.LayoutParams(MATCH, 0, 1f));
+        return root;
+    }
+
+    View buildMonolit() {
+        LinearLayout root = hbox();
+        homeFrame(root, 32);
+
+        LinearLayout left = vbox();
+        LinearLayout top = hbox();
+        top.addView(tagView(), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        top.addView(speedBlock(px(120), px(70)));
+        left.addView(top, new LinearLayout.LayoutParams(MATCH, WRAP));
+        left.addView(timeBlock(96, false, false, true), new LinearLayout.LayoutParams(MATCH, WRAP));
+        left.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
+        left.addView(btBlock(px(240), px(150), Gravity.BOTTOM | Gravity.LEFT));
+        left.addView(prayerBlock(80), new LinearLayout.LayoutParams(MATCH, px(80)));
+        left.addView(gaugeBlock(40), new LinearLayout.LayoutParams(MATCH, px(40)));
+        root.addView(left, new LinearLayout.LayoutParams(px(310), MATCH));
+        root.addView(dividerV(22));
+        root.addView(tileGrid(3, 4, 16, false), new LinearLayout.LayoutParams(0, MATCH, 1f));
+        return root;
+    }
+
+    View buildTerminal() {
+        LinearLayout root = vbox();
+        homeFrame(root, 16);
+
+        LinearLayout top = hbox();
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.addView(tagView(), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        top.addView(timeBlock(56, false, false, false));
+        top.addView(speedBlock(px(110), px(70)));
+        root.addView(top, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        root.addView(tileGrid(3, 4, 8, false), new LinearLayout.LayoutParams(MATCH, 0, 1f));
+
+        LinearLayout bottom = hbox();
+        bottom.addView(prayerBlock(80), new LinearLayout.LayoutParams(0, px(80), 1f));
+        bottom.addView(gaugeBlock(40), new LinearLayout.LayoutParams(px(300), px(40)));
+        root.addView(bottom, new LinearLayout.LayoutParams(MATCH, WRAP));
+        return root;
+    }
+
+    View buildSirkuit() {
+        LinearLayout root = vbox();
+        homeFrame(root, 20);
+
+        LinearLayout top = hbox();
+        top.addView(tagView(), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        top.addView(timeBlock(92, false, false, true));
+        btWidget = new BtWidget(true);
+        top.addView(btWidget, new LinearLayout.LayoutParams(px(360), px(92)));
+        root.addView(top, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        LinearLayout main = hbox();
+        LinearLayout left = vbox();
+        left.addView(speedBlock(MATCH, px(200)), new LinearLayout.LayoutParams(MATCH, px(200)));
+        left.addView(prayerBlock(100), new LinearLayout.LayoutParams(MATCH, px(100)));
+        left.addView(gaugeBlock(50), new LinearLayout.LayoutParams(MATCH, px(50)));
+        main.addView(left, new LinearLayout.LayoutParams(px(300), MATCH));
+        main.addView(dividerV(16));
+        main.addView(tileGrid(4, 3, 12, false), new LinearLayout.LayoutParams(0, MATCH, 1f));
+        root.addView(main, new LinearLayout.LayoutParams(MATCH, 0, 1f));
+        return root;
+    }
+
+    View buildRuang() {
+        LinearLayout root = vbox();
+        homeFrame(root, 24);
+        root.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        LinearLayout top = hbox();
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.addView(tagView(), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        top.addView(timeBlock(90, false, false, true));
+        top.addView(btBlock(px(190), px(140), Gravity.TOP | Gravity.RIGHT));
+        root.addView(top, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        root.addView(tileGrid(4, 3, 10, false), new LinearLayout.LayoutParams(MATCH, 0, 1f));
+
+        LinearLayout bottom = hbox();
+        bottom.addView(prayerBlock(60), new LinearLayout.LayoutParams(0, px(60), 1f));
+        bottom.addView(gaugeBlock(30), new LinearLayout.LayoutParams(px(300), px(30)));
+        root.addView(bottom, new LinearLayout.LayoutParams(MATCH, WRAP));
+        return root;
+    }
+
+    View buildDasbor() {
+        LinearLayout root = vbox();
+        homeFrame(root, 24);
+
+        LinearLayout head = hbox();
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(tagView(), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        head.addView(timeBlock(70, false, false, true));
+        head.addView(speedBlock(px(130), px(80)));
+        root.addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        LinearLayout cards = hbox();
+        cards.addView(prayerBlock(90), new LinearLayout.LayoutParams(0, px(90), 1f));
+        cards.addView(btBlock(px(260), px(120), Gravity.CENTER));
+        cards.addView(gaugeBlock(90), new LinearLayout.LayoutParams(0, px(90), 1f));
+        LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(MATCH, WRAP);
+        cl.topMargin = px(10);
+        root.addView(cards, cl);
+
+        root.addView(tileGrid(4, 3, 10, false), new LinearLayout.LayoutParams(MATCH, 0, 1f));
+        return root;
+    }
+
+    View buildPoster() {
+        LinearLayout root = vbox();
+        homeFrame(root, 28);
+
+        LinearLayout main = hbox();
+        LinearLayout left = vbox();
+        left.addView(tagView(), new LinearLayout.LayoutParams(MATCH, WRAP));
+        left.addView(timeBlock(92, false, true, true), new LinearLayout.LayoutParams(MATCH, WRAP));
+        left.addView(prayerBlock(70), new LinearLayout.LayoutParams(MATCH, px(70)));
+        left.addView(gaugeBlock(36), new LinearLayout.LayoutParams(MATCH, px(36)));
+        left.addView(speedBlock(MATCH, px(50)), new LinearLayout.LayoutParams(MATCH, px(50)));
+        left.addView(btBlock(px(240), px(150), Gravity.BOTTOM | Gravity.LEFT));
+        main.addView(left, new LinearLayout.LayoutParams(px(380), MATCH));
+        main.addView(dividerV(18));
+        main.addView(tileGrid(3, 4, 10, false), new LinearLayout.LayoutParams(0, MATCH, 1f));
+        root.addView(main, new LinearLayout.LayoutParams(MATCH, 0, 1f));
+        return root;
+    }
+
+    View buildNordik() {
+        LinearLayout root = vbox();
+        homeFrame(root, 36);
+
+        LinearLayout top = hbox();
+        top.addView(tagView(), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        top.addView(btBlock(px(220), px(160), Gravity.TOP | Gravity.RIGHT));
+        root.addView(top, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        LinearLayout main = hbox();
+        LinearLayout left = vbox();
+        left.addView(timeBlock(80, false, false, true), new LinearLayout.LayoutParams(MATCH, WRAP));
+        left.addView(prayerBlock(70), new LinearLayout.LayoutParams(MATCH, px(70)));
+        left.addView(gaugeBlock(36), new LinearLayout.LayoutParams(MATCH, px(36)));
+        left.addView(speedBlock(MATCH, px(54)), new LinearLayout.LayoutParams(MATCH, px(54)));
+        main.addView(left, new LinearLayout.LayoutParams(px(330), MATCH));
+        main.addView(tileGrid(4, 3, 16, false), new LinearLayout.LayoutParams(0, MATCH, 1f));
+        root.addView(main, new LinearLayout.LayoutParams(MATCH, 0, 1f));
+        return root;
+    }
+
+    View buildArkade() {
+        LinearLayout root = vbox();
+        homeFrame(root, 16);
+
+        LinearLayout top = hbox();
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.addView(tagView(), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        top.addView(timeBlock(64, false, false, false));
+        top.addView(speedBlock(px(110), px(70)));
+        root.addView(top, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        LinearLayout main = hbox();
+        LinearLayout left = vbox();
+        btWidget = new BtWidget(true);
+        left.addView(btWidget, new LinearLayout.LayoutParams(MATCH, px(92)));
+        prayerView = new PrayerView();
+        LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(MATCH, px(90));
+        pl.topMargin = px(12);
+        left.addView(prayerView, pl);
+        gauge = new Gauge();
+        LinearLayout.LayoutParams gl = new LinearLayout.LayoutParams(MATCH, px(38));
+        gl.topMargin = px(12);
+        left.addView(gauge, gl);
+        main.addView(left, new LinearLayout.LayoutParams(px(300), MATCH));
+        main.addView(tileGrid(4, 3, 8, false), new LinearLayout.LayoutParams(0, MATCH, 1f));
+        root.addView(main, new LinearLayout.LayoutParams(MATCH, 0, 1f));
+        return root;
+    }
+
     LinearLayout buildDrawer() {
         LinearLayout d = new LinearLayout(this);
         d.setOrientation(LinearLayout.VERTICAL);
-        d.setBackgroundColor(BG);
+        d.setBackgroundColor(Theme.withAlpha(BG, 0xF2));
         int pad = px(24);
         d.setPadding(pad, pad, pad, 0);
 
@@ -856,13 +1324,19 @@ public class HomeActivity extends Activity {
         head.setGravity(Gravity.CENTER_VERTICAL);
 
         drawerTitle = text("SEMUA APLIKASI", fHeavy, 40, TEXT);
-        head.addView(drawerTitle);
+        drawerTitle.setEllipsize(TextUtils.TruncateAt.END);
+        head.addView(drawerTitle, new LinearLayout.LayoutParams(0, WRAP, 1f));
         drawerCount = text("", fMono, 13, AMBER);
         drawerCount.setLetterSpacing(0.2f);
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(WRAP, WRAP);
         cl.leftMargin = px(20);
         head.addView(drawerCount, cl);
-        head.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+
+        Button tema = new Button("TEMA");
+        tema.setOnClickListener(v -> showThemePicker());
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(px(120), px(56));
+        tl.rightMargin = px(12);
+        head.addView(tema, tl);
 
         Button close = new Button("TUTUP  ✕");
         close.setOnClickListener(v -> closeDrawer());
@@ -897,6 +1371,132 @@ public class HomeActivity extends Activity {
         });
         d.addView(grid, new LinearLayout.LayoutParams(MATCH, 0, 1f));
         return d;
+    }
+
+    void showThemePicker() {
+        Dialog d = new Dialog(this);
+        d.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout root = vbox();
+        int p = px(24);
+        root.setPadding(p, p, p, p);
+        root.setBackgroundColor(BG);
+
+        LinearLayout head = hbox();
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(text("TEMA", fHeavy, 30, TEXT), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        Button mode = new Button(themeLight ? "MODE: TERANG" : "MODE: GELAP");
+        mode.setOnClickListener(v -> {
+            prefs.edit().putBoolean("themeLight", !themeLight).apply();
+            d.dismiss();
+            recreate();
+        });
+        head.addView(mode, new LinearLayout.LayoutParams(px(190), px(52)));
+        root.addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        GridView gv = new GridView(this);
+        gv.setNumColumns(5);
+        gv.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
+        gv.setHorizontalSpacing(px(10));
+        gv.setVerticalSpacing(px(10));
+        gv.setSelector(new ColorDrawable(0));
+        gv.setVerticalScrollBarEnabled(false);
+        gv.setAdapter(new ThemeAdapter());
+        gv.setOnItemClickListener((parent, view, pos, id) -> {
+            prefs.edit().putInt("theme", Theme.THEMES[pos].id).apply();
+            d.dismiss();
+            recreate();
+        });
+        LinearLayout.LayoutParams gl = new LinearLayout.LayoutParams(MATCH, px(230));
+        gl.topMargin = px(18);
+        root.addView(gv, gl);
+
+        LinearLayout actions = hbox();
+        Button gambar = new Button("GAMBAR");
+        gambar.setOnClickListener(v -> {
+            d.dismiss();
+            pickThemeImage();
+        });
+        Button folder = new Button("FOLDER");
+        folder.setOnClickListener(v -> showThemeFolder());
+        Button reload = new Button("MUAT ULANG");
+        reload.setOnClickListener(v -> loadThemeBackground());
+        actions.addView(gambar, new LinearLayout.LayoutParams(0, px(52), 1f));
+        LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(0, px(52), 1f);
+        al.leftMargin = px(8);
+        actions.addView(folder, al);
+        LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(0, px(52), 1f);
+        rl.leftMargin = px(8);
+        actions.addView(reload, rl);
+        LinearLayout.LayoutParams al2 = new LinearLayout.LayoutParams(MATCH, WRAP);
+        al2.topMargin = px(14);
+        root.addView(actions, al2);
+
+        d.setContentView(root);
+        d.show();
+        Window w = d.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(BG));
+            int width = (int) (getResources().getDisplayMetrics().widthPixels * 0.92f);
+            w.setLayout(width, WRAP);
+        }
+    }
+
+    class ThemeAdapter extends BaseAdapter {
+        @Override public int getCount() { return Theme.THEMES.length; }
+        @Override public Object getItem(int i) { return Theme.THEMES[i]; }
+        @Override public long getItemId(int i) { return Theme.THEMES[i].id; }
+
+        @Override public View getView(int i, View old, ViewGroup parent) {
+            ThemeCard c = old instanceof ThemeCard ? (ThemeCard) old : new ThemeCard();
+            c.theme = Theme.THEMES[i];
+            c.selected = c.theme.id == theme.id;
+            if (old == null) c.setLayoutParams(new AbsListView.LayoutParams(MATCH, px(110)));
+            c.invalidate();
+            return c;
+        }
+    }
+
+    class ThemeCard extends View {
+        final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint swatch = new Paint();
+        final TextPaint label = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        Theme theme;
+        boolean selected;
+
+        ThemeCard() {
+            super(HomeActivity.this);
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeWidth(px(1));
+            label.setTypeface(fMonoBold);
+            label.setTextSize(sp(11));
+            label.setLetterSpacing(0.08f);
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            if (theme == null) return;
+            int w = getWidth(), h = getHeight();
+            Theme.P p = theme.palette(themeLight);
+            fill.setColor(selected ? Theme.withAlpha(p.amber, 0x24) : Theme.withAlpha(p.panel, 0xFF));
+            c.drawRoundRect(px(1), px(1), w - px(1), h - px(1), px(5), px(5), fill);
+            stroke.setColor(selected ? p.amber : p.line);
+            c.drawRoundRect(px(1), px(1), w - px(1), h - px(1), px(5), px(5), stroke);
+            label.setColor(selected ? p.amber : p.text);
+            c.drawText(theme.name, px(10), px(24), label);
+
+            int y = h - px(46), cell = px(20), gap = px(6), x = px(10);
+            swatch.setColor(p.bg);
+            c.drawRect(x, y, x + cell, y + cell, swatch);
+            x += cell + gap;
+            swatch.setColor(Theme.withAlpha(p.panel, 0xFF));
+            c.drawRect(x, y, x + cell, y + cell, swatch);
+            x += cell + gap;
+            swatch.setColor(p.amber);
+            c.drawRect(x, y, x + cell, y + cell, swatch);
+            x += cell + gap;
+            swatch.setColor(p.text);
+            c.drawRect(x, y, x + cell, y + cell, swatch);
+        }
     }
 
     void openDrawer(int slot) {
@@ -977,6 +1577,8 @@ public class HomeActivity extends Activity {
     abstract class Panel extends View {
         final Paint fill = new Paint();
         final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint edge = new Paint();
+        final Paint hi = new Paint();
         boolean down;
 
         Panel() {
@@ -984,6 +1586,8 @@ public class HomeActivity extends Activity {
             stroke.setStyle(Paint.Style.STROKE);
             stroke.setStrokeWidth(px(1));
             stroke.setColor(LINE);
+            hi.setStyle(Paint.Style.STROKE);
+            hi.setStrokeWidth(px(1));
         }
 
         @Override protected void drawableStateChanged() {
@@ -995,12 +1599,40 @@ public class HomeActivity extends Activity {
         }
 
         void drawFrame(Canvas c) {
-            int w = getWidth(), h = getHeight();
-            fill.setColor(down ? AMBER : PANEL);
+            int w = getWidth(), h = getHeight(), style = theme.frame;
+            if (down) {
+                fill.setColor(theme.id == 10 ? 0xFF00E5FF : AMBER);
+                c.drawRect(0, 0, w, h, fill);
+                return;
+            }
+            if (style == Theme.FRAME_PAPER || style == Theme.FRAME_EXTRUDED) {
+                int off = style == Theme.FRAME_EXTRUDED ? px(5) : px(3);
+                edge.setColor(Theme.withAlpha(INK, style == Theme.FRAME_EXTRUDED ? 0xC0 : 0x66));
+                c.drawRect(off, off, w, h, edge);
+            }
+            fill.setColor(style == Theme.FRAME_GLASS ? Theme.withAlpha(PANEL, 0xE6) : PANEL);
             c.drawRect(0, 0, w, h, fill);
-            if (!down) {
-                float s = stroke.getStrokeWidth() / 2f;
-                c.drawRect(s, s, w - s, h - s, stroke);
+
+            float s = stroke.getStrokeWidth() / 2f;
+            stroke.setColor((style == Theme.FRAME_GLASS ? Theme.withAlpha(TEXT, 0x33) : (theme.id == 10 ? 0xFF00E5FF : LINE)));
+            c.drawRect(s, s, w - s, h - s, stroke);
+
+            if (style == Theme.FRAME_RAISED) {
+                hi.setColor(Theme.withAlpha(TEXT, 0x24));
+                edge.setColor(Theme.withAlpha(INK, 0x80));
+                c.drawLine(0, 0, w, 0, hi);
+                c.drawLine(0, 0, 0, h, hi);
+                c.drawLine(0, h - px(2), w, h - px(2), edge);
+                c.drawLine(w - px(2), 0, w - px(2), h, edge);
+            } else if (style == Theme.FRAME_BEVEL) {
+                hi.setColor(Theme.withAlpha(TEXT, 0x18));
+                c.drawRect(px(3), px(3), w - px(3), h - px(3), hi);
+            } else if (style == Theme.FRAME_GLASS) {
+                hi.setColor(Theme.withAlpha(TEXT, 0x40));
+                c.drawLine(px(2), px(2), w - px(2), px(2), hi);
+            } else if (style == Theme.FRAME_EXTRUDED) {
+                edge.setColor(theme.id == 10 ? 0xFF00E5FF : (theme.id == 5 ? 0xFFFF8A3D : AMBER));
+                c.drawRect(0, h - px(3), w, h, edge);
             }
         }
     }
@@ -1175,7 +1807,6 @@ public class HomeActivity extends Activity {
             super(HomeActivity.this);
             frame.setStyle(Paint.Style.STROKE);
             frame.setStrokeWidth(px(1));
-            frame.setColor(LINE);
             big.setTypeface(fHeavy);
             big.setFakeBoldText(true);
             big.setStyle(Paint.Style.FILL_AND_STROKE);
@@ -1200,10 +1831,12 @@ public class HomeActivity extends Activity {
             int w = getWidth(), h = getHeight();
             panel.setColor(PANEL);
             c.drawRect(0, 0, w, h, panel);
+            frame.setColor(theme.id == 10 ? 0xFF00E5FF : LINE);
             c.drawRect(0.5f, 0.5f, w - 0.5f, h - 0.5f, frame);
 
             gps.setTextSize(sp(10));
-            gps.setColor(fix ? AMBER : DIM);
+            int accent = theme.id == 10 ? 0xFF00E5FF : AMBER;
+            gps.setColor(fix ? accent : DIM);
             c.drawText(fix ? "GPS" : "NO GPS", px(12), px(18), gps);
 
             int v = Math.round(kmh);
@@ -1219,10 +1852,11 @@ public class HomeActivity extends Activity {
             c.drawText(fix ? String.valueOf(v) : "--", w / 2f, h * 0.66f, big);
 
             unit.setTextSize(sp(12));
-            unit.setColor(AMBER);
+            unit.setColor(accent);
             c.drawText("KM/H", w / 2f, h - px(12), unit);
 
             int barX = w - px(22), barW = px(10);
+            volBar.setColor((accent & 0x00FFFFFF) | 0x40000000);
             int barTop = px(22), barBot = h - px(22);
             volBar.setStyle(Paint.Style.FILL);
             volBar.setColor((color & 0x00FFFFFF) | 0x40000000);
@@ -1303,9 +1937,15 @@ public class HomeActivity extends Activity {
         Bitmap art;
         boolean playing;
         int held, seq;
+        boolean horizontal;
 
         BtWidget() {
+            this(false);
+        }
+
+        BtWidget(boolean horizontal) {
             super(HomeActivity.this);
+            this.horizontal = horizontal;
             frame.setStyle(Paint.Style.STROKE);
             frame.setStrokeWidth(px(1));
             frame.setColor(LINE);
@@ -1461,6 +2101,54 @@ public class HomeActivity extends Activity {
             float st = frame.getStrokeWidth() / 2f;
             c.drawRect(st, st, w - st, h - st, frame);
 
+            if (horizontal) {
+                int cs = Math.min(h - pad * 2, px(76));
+                int cx = pad, cy = (h - cs) / 2;
+                dst.set(cx, cy, cx + cs, cy + cs);
+                if (art != null) {
+                    int iw = art.getWidth(), ih = art.getHeight(), side = Math.min(iw, ih);
+                    src.set((iw - side) / 2, (ih - side) / 2, (iw + side) / 2, (ih + side) / 2);
+                    c.drawBitmap(art, src, dst, null);
+                } else {
+                    int col = track.isEmpty() ? PANEL : palette[(track.hashCode() & 0x7fffffff) % palette.length];
+                    disc.setStyle(Paint.Style.FILL);
+                    disc.setColor(col);
+                    c.drawRect(dst, disc);
+                    disc.setStyle(Paint.Style.STROKE);
+                    disc.setStrokeWidth(px(1));
+                    disc.setColor(track.isEmpty() ? LINE : DIM);
+                    c.drawRect(dst, disc);
+                    ini.setColor(track.isEmpty() ? FAINT : TEXT);
+                    Paint.FontMetrics fm = ini.getFontMetrics();
+                    String ch = track.isEmpty() ? "BT" : track.substring(0, 1).toUpperCase(ID);
+                    c.drawText(ch, cx + cs / 2f, cy + cs / 2f - (fm.ascent + fm.descent) / 2f, ini);
+                }
+
+                float tx = cx + cs + px(14);
+                float ty = cy + px(20);
+                CharSequence t = TextUtils.ellipsize(track.isEmpty() ? "BT MUSIC" : track, title, w - tx - px(150), TextUtils.TruncateAt.END);
+                title.setColor(track.isEmpty() ? FAINT : (theme.id == 5 ? AMBER : AMBER));
+                c.drawText(t, 0, t.length(), tx, ty, title);
+                String a = artist.isEmpty() ? (track.isEmpty() ? "HUBUNGKAN PONSEL" : "") : artist;
+                CharSequence as = TextUtils.ellipsize(a, sub, w - tx - px(150), TextUtils.TruncateAt.END);
+                sub.setColor(artist.isEmpty() ? DIM : AMBER);
+                c.drawText(as, 0, as.length(), tx, ty + px(18), sub);
+
+                int bw = px(64), bh = px(44);
+                int by = (h - bh) / 2;
+                int gap = px(6);
+                int x = w - pad - (bw * 3 + gap * 2);
+                rPrev.set(x, by, x + bw, by + bh);
+                x += bw + gap;
+                rPlay.set(x, by, x + bw, by + bh);
+                x += bw + gap;
+                rNext.set(x, by, x + bw, by + bh);
+                key(c, rPrev, 2, held == 2);
+                key(c, rPlay, playing ? 3 : 1, held == 1);
+                key(c, rNext, 4, held == 3);
+                return;
+            }
+
             int cs = Math.min(w - pad * 2, px(128));
             int cx = (w - cs) / 2, cy = pad;
             dst.set(cx, cy, cx + cs, cy + cs);
@@ -1582,12 +2270,13 @@ public class HomeActivity extends Activity {
 
             // Penanda waktu sholat: belah ketupat kecil di bawah garis, yang berikutnya amber.
             if (pray != null) {
+                int accent = theme.id == 10 ? 0xFF00E5FF : AMBER;
                 int next = nextPrayer(cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE));
                 float r = px(3.5f), cy = base + px(6);
                 line.setStyle(Paint.Style.FILL);
                 for (int i = 0; i < pray.length; i++) {
                     float x = x0 + w * pray[i] / 1440f;
-                    line.setColor(i == next ? AMBER : TEXT);
+                    line.setColor(i == next ? accent : TEXT);
                     needle.rewind();
                     needle.moveTo(x, cy - r);
                     needle.lineTo(x + r, cy);
@@ -1699,6 +2388,7 @@ public class HomeActivity extends Activity {
         }
 
         @Override public void draw(Canvas c) {
+            if (!theme.cropMarks) return;
             Rect b = getBounds();
             int i = px(9), l = px(14);
             float L = b.left + i, T = b.top + i, R = b.right - i, B = b.bottom - i;

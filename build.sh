@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build KlikDash tanpa Gradle: aapt2 -> javac -> d8 -> zipalign -> apksigner.
 # Pakai: ./build.sh            (build saja)
-#        ./build.sh install    (build + pasang ke headunit, jadikan launcher default)
+#        ./build.sh install    (build + pasang ke headunit, AOT speed, jadikan launcher default)
 #        ./build.sh release    (APK rilis publik tanpa teks Al-Qur'an → build/klikdash-<versi>.apk)
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -75,6 +75,12 @@ if [ "$MODE" = "install" ]; then
     adb -s "$DEVICE" install -r build/klikdash.apk
     adb -s "$DEVICE" shell pm grant id.kokpit android.permission.ACCESS_FINE_LOCATION
     adb -s "$DEVICE" shell pm grant id.kokpit android.permission.ACCESS_COARSE_LOCATION
+    adb -s "$DEVICE" shell pm grant id.kokpit android.permission.READ_EXTERNAL_STORAGE
+    adb -s "$DEVICE" shell pm grant id.kokpit android.permission.WRITE_EXTERNAL_STORAGE
+    # ROM K2001N default-nya interpret-only; compile ulang tiap update/reinstall.
+    adb -s "$DEVICE" shell cmd package compile -m speed -f id.kokpit
+    adb -s "$DEVICE" shell dumpsys package id.kokpit | grep -q 'compilation_filter=speed' \
+        || { echo "AOT speed gagal untuk id.kokpit" >&2; exit 1; }
     adb -s "$DEVICE" shell cmd package set-home-activity id.kokpit/.HomeActivity
     adb -s "$DEVICE" shell am start -a android.intent.action.MAIN -c android.intent.category.HOME
 fi

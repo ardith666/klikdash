@@ -37,7 +37,7 @@ import static id.kokpit.HomeActivity.TEXT;
 public class QuranActivity extends Activity {
 
     static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT, WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
-    static final int ACTIVE_BG = 0xFF1A1710, TRANSLATION = 0xFFD9D3C5;
+    static int ACTIVE_BG = 0xFF1A1710, TRANSLATION = 0xFFD9D3C5;
     static final Locale ID = new Locale("id", "ID");
 
     float dp, sp;
@@ -47,6 +47,8 @@ public class QuranActivity extends Activity {
     int surah = 1;            // surah yang sedang ditampilkan
     int followed = -1;        // indeks global ayat terakhir yang diikuti scroll
     boolean showLatin, showIndo;
+    int paletteId = 1;
+    boolean paletteLight;
 
     ListView surahList, ayahList;
     SurahAdapter surahAdapter;
@@ -64,6 +66,16 @@ public class QuranActivity extends Activity {
         dp = getResources().getDisplayMetrics().density;
         sp = getResources().getDisplayMetrics().scaledDensity;
         prefs = getSharedPreferences("quran", MODE_PRIVATE);
+        SharedPreferences app = HomeActivity.openPrefs(this);
+        paletteId = app.getInt("theme", 1);
+        paletteLight = app.getBoolean("themeLight", false);
+        Theme theme = Theme.get(paletteId);
+        boolean light = paletteLight;
+        HomeActivity.applyPalette(theme, light);
+        ACTIVE_BG = theme.palette(light).activeBg;
+        TRANSLATION = theme.palette(light).translation;
+        getWindow().setStatusBarColor(BG);
+        getWindow().setNavigationBarColor(BG);
         showLatin = prefs.getBoolean("latin", false);
         showIndo = prefs.getBoolean("indo", true);
         QuranService.loadState(this);
@@ -171,6 +183,13 @@ public class QuranActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        SharedPreferences app = HomeActivity.openPrefs(this);
+        int npId = app.getInt("theme", 1);
+        boolean npLight = app.getBoolean("themeLight", false);
+        if (npId != paletteId || npLight != paletteLight) {
+            recreate();
+            return;
+        }
         QuranService.listeners.add(onService);
         followed = -1;
         if (QuranData.loaded()) refreshPlayer();
