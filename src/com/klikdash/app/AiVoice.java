@@ -42,20 +42,19 @@ final class AiVoice {
     AiVoice(Context c) { ctx = c.getApplicationContext(); }
 
     // Selama mendengar & menjawab: musik/murattal berhenti sementara, lanjut lagi setelahnya.
-    android.media.AudioFocusRequest focus;
+    Compat.Focus focus;
 
     void hush() {
         if (focus != null) return;
-        focus = new android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
-                .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-                .build();
-        ((android.media.AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE)).requestAudioFocus(focus);
+        focus = new Compat.Focus(ctx, android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE,
+                new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build(), null);
+        focus.request();
     }
 
     void unhush() {
         if (focus == null) return;
-        ((android.media.AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE)).abandonAudioFocusRequest(focus);
+        focus.abandon();
         focus = null;
     }
 

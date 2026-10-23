@@ -463,15 +463,7 @@ public class SettingsActivity extends Activity {
         return l;
     }
 
-    Typeface font(String file, String axes) {
-        try {
-            Typeface.Builder b = new Typeface.Builder(getAssets(), file);
-            if (axes != null) b.setFontVariationSettings(axes);
-            Typeface t = b.build();
-            if (t != null) return t;
-        } catch (Exception ignored) { }
-        return Typeface.DEFAULT;
-    }
+    Typeface font(String file, String axes) { return Compat.font(getAssets(), file, axes, Typeface.DEFAULT); }
 
     TextView text(String s, Typeface tf, float size, int color) {
         TextView t = new TextView(this);

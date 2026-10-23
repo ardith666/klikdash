@@ -26,8 +26,9 @@ klikdash/
 │   ├── AiTools.java          car commands the AI may run (open app, navigate, murattal, volume…)
 │   ├── AiStore.java          AI profiles; API keys encrypted with Android Keystore
 │   ├── AiVoice.java          speech: ElevenLabs or Android TTS, ElevenLabs Scribe fallback
-│   └── Tweaks.java           system commands through local ADB (ksmd, hide Zlink, launcher, appops)
-├── res/                      theme, vector icons
+│   ├── Tweaks.java           system commands through local ADB (ksmd, hide Zlink, launcher, appops)
+│   └── Compat.java           Android 7–8 differences (fonts, audio focus, notification channel, services)
+├── res/                      theme, vector icons, ISRG root certificates for Android 7.0 (network_security.xml)
 ├── assets/
 │   ├── dzikir.json           morning & evening dhikr, built from KlikBand (tools/build_dzikir.mjs)
 │   ├── quran.txt             6,236 verses (Arabic, Latin, translation), 3.1 MB — NOT in the repo, build it yourself
@@ -35,8 +36,10 @@ klikdash/
 │   ├── mono.ttf              Martian Mono (small numbers)
 │   ├── arabic.ttf            Amiri Quran
 │   ├── serif.ttf             Literata (translation; instanced & subset)
+│   ├── static/               static instances of display/mono for Android 7–8.1 (tools/build_static_fonts.py)
 │   └── licenses/             SIL OFL text for each font (shipped inside the APK)
 ├── tools/build_quran.py      builds quran.txt from equran.id JSON
+├── tools/build_static_fonts.py  builds assets/static/ (needs fonttools)
 ├── design/                   README header (header.html → header.png / header.id.png) + real screenshots
 └── LICENSE                   MIT (code); fonts stay under the OFL
 

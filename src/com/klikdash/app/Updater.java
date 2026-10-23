@@ -176,7 +176,7 @@ final class Updater {
     }
 
     static void installWithPrompt(Activity a, File apk, Runnable onFail) {
-        if (!a.getPackageManager().canRequestPackageInstalls()) {
+        if (!Compat.canRequestPackageInstalls(a)) {
             // Sekali saja: izinkan KlikDash memasang aplikasi, lalu tekan PASANG lagi.
             a.startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     android.net.Uri.parse("package:" + a.getPackageName())));

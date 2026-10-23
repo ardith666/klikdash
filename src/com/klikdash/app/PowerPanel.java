@@ -127,10 +127,12 @@ final class PowerPanel {
                 it.icon = ai.loadIcon(pm);
                 found.add(it);
             }
+            // RUN_ANY_IN_BACKGROUND baru ada di Android 9; di bawahnya status blokir dibaca dari RUN_IN_BACKGROUND.
+            String op = android.os.Build.VERSION.SDK_INT >= 28 ? "RUN_ANY_IN_BACKGROUND" : "RUN_IN_BACKGROUND";
             StringBuilder cmd = new StringBuilder();
             for (Item it : found) {
                 cmd.append("echo \"").append(it.pkg).append("|$(cmd appops get ").append(it.pkg)
-                        .append(" RUN_ANY_IN_BACKGROUND)|$(pidof ").append(it.pkg).append(")\";");
+                        .append(" ").append(op).append(")|$(pidof ").append(it.pkg).append(")\";");
             }
             String out;
             try {

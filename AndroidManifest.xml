@@ -17,6 +17,7 @@
         android:icon="@drawable/ic_launcher"
         android:theme="@style/KlikDash"
         android:allowBackup="false"
+        android:networkSecurityConfig="@xml/network_security"
         android:hardwareAccelerated="true">
 
         <activity

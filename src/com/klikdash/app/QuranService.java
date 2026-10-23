@@ -1,7 +1,6 @@
 package com.klikdash.app;
 
 import android.app.Notification;
-import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -9,7 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.AudioAttributes;
-import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.MediaMetadata;
 import android.media.MediaPlayer;
@@ -82,15 +80,15 @@ public class QuranService extends Service
 
     /** Unduh seluruh audio surah {@code s} untuk dipakai offline. */
     static void download(Context c, int s) {
-        c.startForegroundService(new Intent(c, QuranService.class).setAction(ACTION_DOWNLOAD).putExtra("s", s));
+        Compat.startForegroundService(c, new Intent(c, QuranService.class).setAction(ACTION_DOWNLOAD).putExtra("s", s));
     }
 
     static void send(Context c, String action) {
-        c.startForegroundService(new Intent(c, QuranService.class).setAction(action));
+        Compat.startForegroundService(c, new Intent(c, QuranService.class).setAction(action));
     }
 
     static void play(Context c, int s, int a) {
-        c.startForegroundService(new Intent(c, QuranService.class).setAction(ACTION_PLAY)
+        Compat.startForegroundService(c, new Intent(c, QuranService.class).setAction(ACTION_PLAY)
                 .putExtra("s", s).putExtra("a", a));
     }
 
@@ -114,7 +112,7 @@ public class QuranService extends Service
     MediaPlayer player;
     MediaSession session;
     AudioManager am;
-    AudioFocusRequest focus;
+    Compat.Focus focus;
     NotificationManager nm;
     boolean resumeOnGain;
     final Handler main = new Handler(Looper.getMainLooper());
@@ -132,11 +130,7 @@ public class QuranService extends Service
         loadState(this);
         am = (AudioManager) getSystemService(AUDIO_SERVICE);
         nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        nm.createNotificationChannel(new NotificationChannel("quran", "Murattal", NotificationManager.IMPORTANCE_LOW));
-        focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                .setAudioAttributes(attrs)
-                .setOnAudioFocusChangeListener(this)
-                .build();
+        focus = new Compat.Focus(this, AudioManager.AUDIOFOCUS_GAIN, attrs, this);
 
         session = new MediaSession(this, "klikdash-quran");
         session.setCallback(new MediaSession.Callback() {
@@ -188,7 +182,7 @@ public class QuranService extends Service
     @Override public void onDestroy() {
         downloader.shutdownNow();
         release();
-        am.abandonAudioFocusRequest(focus);
+        focus.abandon();
         session.release();
         playing = false;
         active = false;
@@ -204,7 +198,7 @@ public class QuranService extends Service
         ayah = Math.max(1, Math.min(a, QuranData.count(s)));
         bismillah = withBismillah && ayah == 1 && QuranData.hasBismillah(s);
         getSharedPreferences("quran", MODE_PRIVATE).edit().putInt("s", surah).putInt("a", ayah).apply();
-        if (am.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+        if (focus.request() != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             playing = false;
             publish();
             return;
@@ -277,7 +271,7 @@ public class QuranService extends Service
 
     void resume() {
         if (player != null && !playing) {
-            if (am.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return;
+            if (focus.request() != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return;
             player.start();
             playing = true;
             publish();
@@ -367,7 +361,7 @@ public class QuranService extends Service
     void stopAll() {
         release();
         playing = false;
-        am.abandonAudioFocusRequest(focus);
+        focus.abandon();
         stopForeground(true);
         stopSelf();
     }
@@ -437,7 +431,7 @@ public class QuranService extends Service
     Notification notification() {
         PendingIntent open = PendingIntent.getActivity(this, 0,
                 new Intent(this, QuranActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), 0);
-        return new Notification.Builder(this, "quran")
+        return Compat.notification(this, "quran", "Murattal")
                 .setSmallIcon(R.drawable.ic_quran)
                 .setContentTitle(title())
                 .setContentText(status())

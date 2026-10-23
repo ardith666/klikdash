@@ -27,7 +27,7 @@ klikdash/
 │   ├── AiStore.java          profil AI; API key dienkripsi dengan Android Keystore
 │   ├── AiVoice.java          suara: ElevenLabs atau TTS Android, cadangan ElevenLabs Scribe
 │   └── Tweaks.java           perintah sistem lewat ADB lokal (ksmd, sembunyikan Zlink, launcher, appops)
-├── res/                      tema, ikon vektor
+├── res/                      tema, ikon vektor, sertifikat root ISRG untuk Android 7.0 (network_security.xml)
 ├── assets/
 │   ├── dzikir.json           dzikir pagi & petang, dibangun dari KlikBand (tools/build_dzikir.mjs)
 │   ├── quran.txt             6.236 ayat (Arab, Latin, terjemahan), 3,1 MB — TIDAK ada di repo, dibangun sendiri
@@ -37,6 +37,7 @@ klikdash/
 │   ├── serif.ttf             Literata (terjemahan; di-instance & subset)
 │   └── licenses/             teks SIL OFL tiap font (ikut terbawa di APK)
 ├── tools/build_quran.py      bangun quran.txt dari JSON equran.id
+├── tools/build_static_fonts.py  bangun assets/static/ (butuh fonttools)
 ├── design/                   header README (header.html → header.png / header.id.png) + screenshot asli
 └── LICENSE                   MIT (kode); font tetap OFL
 

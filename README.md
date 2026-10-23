@@ -14,7 +14,7 @@
   <a href="https://github.com/ashafizullah/klikdash/releases/latest"><img src="https://img.shields.io/github/v/release/ashafizullah/klikdash?label=release" alt="Release"></a>
   <a href="https://github.com/ashafizullah/klikdash/releases"><img src="https://img.shields.io/github/downloads/ashafizullah/klikdash/total?color=1fa77a" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/ashafizullah/klikdash?color=blue" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/Android-10-3DDC84?logo=android&logoColor=white" alt="Android 10">
+  <img src="https://img.shields.io/badge/Android-7%2B-3DDC84?logo=android&logoColor=white" alt="Android 7+">
   <img src="https://img.shields.io/badge/headunit-NWD%20K2401%20%C2%B7%201280%C3%97720-lightgrey" alt="Headunit NWD K2401, 1280x720">
   <br>
   <img src="https://img.shields.io/badge/idle%20CPU-~0%25-FFB000" alt="Idle CPU around 0%">
@@ -72,15 +72,19 @@ are kept.
 
 ## Supported devices
 
-KlikDash needs **Android 10 or newer** and is designed for a **1280×720 landscape** screen. The
+KlikDash needs **Android 7.0 or newer** and is designed for a **1280×720 landscape** screen. The
 headunit-specific parts (default launcher, sleep/wake, Zlink, ksmd) target NWD firmware.
 
 | Device | Screen | Android | Status |
 |---|---|---|---|
 | NWD K2401 (Allwinner sun50iw10) | 1280×720 | 10 | ✅ tested on a real device |
-| Other headunits with NWD firmware | 1280×720 | 10+ | ⚠️ should work, not tested |
-| Other Android headunits (FYT, MTK, Rockchip, …) | 1280×720 | 10+ | ⚠️ launcher, prayer times and Quran should work; NWD-specific tweaks do not apply |
-| Other screen sizes or portrait screens | 800×480 and up | 10+ | ⚠️ the layout adapts (checked on an emulator at several sizes), not tested on a real device |
+| Other headunits with NWD firmware | 1280×720 | 7+ | ⚠️ should work, not tested |
+| Other Android headunits (FYT, MTK, Rockchip, …) | 1280×720 | 7+ | ⚠️ launcher, prayer times and Quran should work; NWD-specific tweaks do not apply |
+| Other screen sizes or portrait screens | 800×480 and up | 7+ | ⚠️ the layout adapts (checked on an emulator at several sizes), not tested on a real device |
+
+On Android 7.0–8.1 (checked on an emulator, not yet on a real headunit) everything works, except that the
+Power Saver is weaker: Android 8.1 and older lack the stricter background restriction, so blocked apps are only
+force-stopped and denied background running.
 
 Zlink was used with wireless CarPlay on an iPhone; Android Auto has not been tested. Reports from other headunits are
 welcome: please open an issue with the model, screen size and Android version.

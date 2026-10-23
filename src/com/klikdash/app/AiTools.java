@@ -210,7 +210,7 @@ final class AiTools {
         if (QuranService.active) {
             String act = "pause".equals(action) ? QuranService.ACTION_PAUSE : "next".equals(action) ? QuranService.ACTION_NEXT
                     : "previous".equals(action) ? QuranService.ACTION_PREV : QuranService.ACTION_RESUME;
-            a.startForegroundService(new Intent(a, QuranService.class).setAction(act));
+            Compat.startForegroundService(a, new Intent(a, QuranService.class).setAction(act));
             return "Murattal: " + action + ".";
         }
         int code = "pause".equals(action) ? KeyEvent.KEYCODE_MEDIA_PAUSE : "next".equals(action) ? KeyEvent.KEYCODE_MEDIA_NEXT

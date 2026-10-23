@@ -14,7 +14,7 @@
   <a href="https://github.com/ashafizullah/klikdash/releases/latest"><img src="https://img.shields.io/github/v/release/ashafizullah/klikdash?label=release" alt="Release"></a>
   <a href="https://github.com/ashafizullah/klikdash/releases"><img src="https://img.shields.io/github/downloads/ashafizullah/klikdash/total?color=1fa77a" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/ashafizullah/klikdash?color=blue" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/Android-10-3DDC84?logo=android&logoColor=white" alt="Android 10">
+  <img src="https://img.shields.io/badge/Android-7%2B-3DDC84?logo=android&logoColor=white" alt="Android 7+">
   <img src="https://img.shields.io/badge/headunit-NWD%20K2401%20%C2%B7%201280%C3%97720-lightgrey" alt="Headunit NWD K2401, 1280x720">
   <br>
   <img src="https://img.shields.io/badge/CPU%20saat%20diam-~0%25-FFB000" alt="CPU saat diam sekitar 0%">
@@ -72,15 +72,19 @@ audio tetap ada.
 
 ## Perangkat yang didukung
 
-KlikDash butuh **Android 10 atau lebih baru** dan dirancang untuk layar **1280×720 landscape**.
+KlikDash butuh **Android 7.0 atau lebih baru** dan dirancang untuk layar **1280×720 landscape**.
 Bagian yang khusus headunit (launcher default, tidur/bangun, Zlink, ksmd) ditujukan untuk firmware NWD.
 
 | Perangkat | Layar | Android | Status |
 |---|---|---|---|
 | NWD K2401 (Allwinner sun50iw10) | 1280×720 | 10 | ✅ diuji di perangkat asli |
-| Headunit lain dengan firmware NWD | 1280×720 | 10+ | ⚠️ seharusnya jalan, belum diuji |
-| Headunit Android lain (FYT, MTK, Rockchip, …) | 1280×720 | 10+ | ⚠️ launcher, jadwal sholat, dan Al-Qur'an seharusnya jalan; penyetelan khusus NWD tidak berlaku |
-| Ukuran layar lain atau layar portrait | 800×480 ke atas | 10+ | ⚠️ tata letak menyesuaikan (dicek di emulator berbagai ukuran), belum diuji di perangkat asli |
+| Headunit lain dengan firmware NWD | 1280×720 | 7+ | ⚠️ seharusnya jalan, belum diuji |
+| Headunit Android lain (FYT, MTK, Rockchip, …) | 1280×720 | 7+ | ⚠️ launcher, jadwal sholat, dan Al-Qur'an seharusnya jalan; penyetelan khusus NWD tidak berlaku |
+| Ukuran layar lain atau layar portrait | 800×480 ke atas | 7+ | ⚠️ tata letak menyesuaikan (dicek di emulator berbagai ukuran), belum diuji di perangkat asli |
+
+Di Android 7.0–8.1 (dicek di emulator, belum di headunit asli) semua fitur jalan, hanya Hemat Daya yang lebih
+lemah: Android 8.1 ke bawah belum punya pembatasan latar yang ketat, jadi aplikasi yang diblokir hanya dihentikan
+paksa dan dilarang berjalan di latar.
 
 Zlink dipakai dengan CarPlay nirkabel di iPhone; Android Auto belum diuji. Laporan dari headunit lain sangat membantu:
 buka issue dengan menyebut model, ukuran layar, dan versi Android.

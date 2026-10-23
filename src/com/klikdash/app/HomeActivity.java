@@ -892,13 +892,7 @@ public class HomeActivity extends Activity {
 
     // ---------------------------------------------------------------- helpers
 
-    Typeface font(String file, String axes) {
-        try {
-            Typeface t = new Typeface.Builder(getAssets(), file).setFontVariationSettings(axes).build();
-            if (t != null) return t;
-        } catch (Exception ignored) { }
-        return Typeface.DEFAULT_BOLD;
-    }
+    Typeface font(String file, String axes) { return Compat.font(getAssets(), file, axes, Typeface.DEFAULT_BOLD); }
 
     TextView text(String s, Typeface tf, float size, int color) {
         TextView t = new TextView(this);
