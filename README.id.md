@@ -72,6 +72,12 @@ panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa libra
   diunduh per ayat saat diputar, sementara sisa surahnya diunduh di latar. Tombol **UNDUH** menyimpan satu
   surah utuh sebelum perjalanan; surah yang sudah tersimpan ditandai **OFFLINE**.
 
+**Dzikir pagi & petang (DZIKIR)**
+- 19 bacaan pagi dan 18 bacaan petang (Ayat Kursi, Al-Ikhlas, Al-Falaq, An-Nas, Sayyidul Istighfar, dan lainnya)
+  dalam Arab, Latin, dan arti, dengan tombol hitung besar yang pindah ke bacaan berikutnya begitu jumlahnya
+  terpenuhi. Pagi sebelum Ashar, petang sejak Ashar, sesuai jadwal sholat Anda; progres tersimpan untuk hari itu.
+- Ubin **DZIKIR** ada di samping **AL-QUR'AN** dan menampilkan *PAGI* atau *PETANG*.
+
 **Hemat Daya (HEMAT DAYA)**
 - Menampilkan aplikasi pihak ketiga, dengan yang sedang berjalan di latar paling atas, dan melarang
   masing-masing berjalan di latar dengan sekali ketuk. Aplikasinya tetap terpasang dan bisa dibuka seperti
@@ -129,10 +135,12 @@ klikdash/
 │   ├── QuranActivity.java    tampilan mushaf + pemutar
 │   ├── QuranService.java     pemutar murattal di latar
 │   ├── QuranData.java        pemuat assets/quran.txt
+│   ├── DzikirActivity.java   dzikir pagi & petang dengan penghitung berpanduan
 │   ├── PowerActivity.java    Hemat Daya: larang aplikasi berjalan di latar
 │   └── Tweaks.java           perintah sistem lewat ADB lokal (ksmd, sembunyikan Zlink, launcher, appops)
 ├── res/                      tema, ikon vektor
 ├── assets/
+│   ├── dzikir.json           dzikir pagi & petang, dibangun dari KlikBand (tools/build_dzikir.mjs)
 │   ├── quran.txt             6.236 ayat (Arab, Latin, terjemahan), 3,1 MB — TIDAK ada di repo, dibangun sendiri
 │   ├── display.ttf           Big Shoulders (jam, label)
 │   ├── mono.ttf              Martian Mono (angka kecil)
@@ -314,5 +322,9 @@ done
 - **Audio** (tidak disertakan): [everyayah.com](https://everyayah.com) / versebyversequran.com, Mishary
   Rashid Alafasy 128 kbps. Ikuti lisensi di situs tersebut.
 - **Jadwal sholat:** algoritma [praytimes.org](http://praytimes.org).
+- **Dzikir** (`assets/dzikir.json`): dari [KlikBand](https://github.com/ashafizullah/klikband); urutan dan jumlah dari
+  [Almanhaj](https://almanhaj.or.id/11518-dzikir-pagi-dan-petang.html), Latin mengikuti Hisnul Muslim, ayat
+  Al-Qur'an dari [Tanzil](https://tanzil.net) (CC BY 3.0). Bangun ulang dengan
+  `node tools/build_dzikir.mjs <klikband>/src/common/dhikrmorningevening.js assets/dzikir.json`.
 
 Proyek ini tidak berafiliasi dengan NWD, Zjinnova (Zlink), Apple, Google, maupun Kemenag RI.

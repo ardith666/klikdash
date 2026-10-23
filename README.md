@@ -73,6 +73,12 @@ without Gradle. The app's own interface is in Indonesian.
   and the audio is downloaded per verse as it plays, with the rest of the surah fetched in the background.
   The **DOWNLOAD** button saves a whole surah before a trip; saved surahs are marked **OFFLINE**.
 
+**Morning & evening dhikr (DZIKIR)**
+- 19 morning and 18 evening readings (Ayat al-Kursi, Al-Ikhlas, Al-Falaq, An-Nas, Sayyidul Istighfar and more)
+  in Arabic, Latin and Indonesian, with a large guided counter that moves to the next reading once the count is
+  reached. Morning before Asr, evening from Asr, based on your prayer times; progress is kept for the day.
+- The **DZIKIR** tile sits next to **AL-QUR'AN** and shows *PAGI* or *PETANG*.
+
 **Power saver (HEMAT DAYA)**
 - Lists third-party apps, with the ones running in the background now at the top, and lets you block each one
   from running in the background with a single tap. The apps stay installed and still open normally. System
@@ -129,10 +135,12 @@ klikdash/
 │   ├── QuranActivity.java    mushaf view + player
 │   ├── QuranService.java     background recitation player
 │   ├── QuranData.java        loader for assets/quran.txt
+│   ├── DzikirActivity.java   morning & evening dhikr with a guided counter
 │   ├── PowerActivity.java    power saver: block apps from running in the background
 │   └── Tweaks.java           system commands through local ADB (ksmd, hide Zlink, launcher, appops)
 ├── res/                      theme, vector icons
 ├── assets/
+│   ├── dzikir.json           morning & evening dhikr, built from KlikBand (tools/build_dzikir.mjs)
 │   ├── quran.txt             6,236 verses (Arabic, Latin, translation), 3.1 MB — NOT in the repo, build it yourself
 │   ├── display.ttf           Big Shoulders (clock, labels)
 │   ├── mono.ttf              Martian Mono (small numbers)
@@ -313,5 +321,9 @@ done
 - **Audio** (not included): [everyayah.com](https://everyayah.com) / versebyversequran.com, Mishary Rashid
   Alafasy 128 kbps. Follow the license on that site.
 - **Prayer times:** the [praytimes.org](http://praytimes.org) algorithm.
+- **Dhikr** (`assets/dzikir.json`): from [KlikBand](https://github.com/ashafizullah/klikband); order and counts from
+  [Almanhaj](https://almanhaj.or.id/11518-dzikir-pagi-dan-petang.html), Latin following Hisnul Muslim, Qur'an
+  verses from [Tanzil](https://tanzil.net) (CC BY 3.0). Rebuild with
+  `node tools/build_dzikir.mjs <klikband>/src/common/dhikrmorningevening.js assets/dzikir.json`.
 
 This project is not affiliated with NWD, Zjinnova (Zlink), Apple, Google, or Kemenag RI.

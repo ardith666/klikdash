@@ -46,6 +46,19 @@
         </activity>
 
         <activity
+            android:name=".DzikirActivity"
+            android:label="Dzikir"
+            android:icon="@drawable/ic_dzikir"
+            android:taskAffinity="com.klikdash.app.dzikir"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|locale|layoutDirection|fontScale">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".PowerActivity"
             android:label="Hemat Daya"
             android:taskAffinity="com.klikdash.app.power"

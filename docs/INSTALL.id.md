@@ -69,6 +69,13 @@ terbuka supaya GPS cepat mendapat sinyal.
 Murattal tetap berbunyi saat Anda membuka Maps atau aplikasi lain, dan bisa dijeda atau dilanjutkan dari
 notifikasi atau tombol media (termasuk tombol setir, bila headunit meneruskannya ke aplikasi).
 
+## Dzikir pagi & petang
+
+Ketuk ubin **DZIKIR** di samping AL-QUR'AN. Sebelum Ashar yang terbuka dzikir pagi, sejak Ashar dzikir petang;
+bisa diganti dengan tombol **PAGI** / **PETANG**. Baca teksnya, lalu ketuk tombol kuning besar setiap selesai
+satu kali bacaan. Begitu jumlahnya terpenuhi (misalnya 3×), layar pindah sendiri ke bacaan berikutnya. Progres
+hari itu tersimpan, jadi aman ditinggal lalu dilanjutkan.
+
 ## 6. Wajib dicek sebelum berkendara
 
 Dalam keadaan mobil diam, pastikan semua ini masih berfungsi:

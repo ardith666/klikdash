@@ -73,6 +73,13 @@ faster.
 The recitation keeps playing while you use Maps or other apps, and can be paused or resumed from the
 notification or media buttons (including steering-wheel buttons, if the headunit passes them to apps).
 
+## Morning & evening dhikr
+
+Tap the **DZIKIR** tile next to AL-QUR'AN. Before Asr it opens the morning dhikr, from Asr the evening dhikr;
+switch with **PAGI** (morning) / **PETANG** (evening). Read the text and tap the big yellow button each time you
+finish one recitation. Once the count is reached (for example 3×), it moves to the next reading by itself. The
+day's progress is saved, so you can leave and come back.
+
 ## 6. Check before you drive
 
 With the car parked, make sure all of these still work:

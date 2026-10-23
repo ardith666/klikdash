@@ -72,13 +72,13 @@ public class HomeActivity extends Activity {
             {"com.waze/.FreeMapAppActivity", "WAZE"},
             {"com.zjinnova.zlink/com.zjinnova.android.zlink.features.main.MainActivity", "ZLINK"},
             {"com.google.android.youtube/.app.honeycomb.Shell$HomeActivity", "YOUTUBE"},
-            {"com.nwd.radio/.home_horizontalActivity", "RADIO"},
             {"com.nwd.android.phone/.home_horizontalActivity", "TELEPON"},
             {"com.nwd.android.video.ui/.home_horizontalActivity", "VIDEO"},
+            {"com.klikdash.app/.DzikirActivity", "DZIKIR"},
             {"com.klikdash.app/.QuranActivity", "AL-QUR'AN"},
             {"com.nwd.carkit360camera/.home_horizontalActivity", "KAMERA 360"},
             {"com.android.car.setting/.home_horizontalActivity", "PENGATURAN"},
-            {null, null}, // slot bebas: ketuk untuk memilih aplikasi
+            {null, null}, // slot bebas: ketuk untuk memilih aplikasi (Radio tetap ada di Semua)
     };
     static final int SLOTS = DEFAULTS.length;
     /** Grid home: slot + ubin "Semua", 4 kolom. Baris pertama (navigasi & hiburan) bernomor amber. */
@@ -284,6 +284,13 @@ public class HomeActivity extends Activity {
         c.setTimeInMillis(now + prefs.getInt("hijriOffset", 0) * 86_400_000L);
         return c.get(android.icu.util.Calendar.DAY_OF_MONTH) + " " + HIJRI_MONTHS[c.get(android.icu.util.Calendar.MONTH)]
                 + " " + c.get(android.icu.util.Calendar.YEAR) + " H";
+    }
+
+    /** Sebelum Ashar = dzikir pagi, sejak Ashar = dzikir petang. */
+    boolean dzikirPagi() {
+        Calendar c = Calendar.getInstance();
+        int min = c.get(Calendar.HOUR_OF_DAY) * 60 + c.get(Calendar.MINUTE);
+        return pray == null || min < pray[2];
     }
 
     void adjustHijri() {
@@ -1092,6 +1099,9 @@ public class HomeActivity extends Activity {
             } else if (a != null) {
                 drawIcon(c, a.icon, w - m - icon, m, icon, down);
                 name = slotLabel[idx] != null ? slotLabel[idx] : a.label.toUpperCase(ID);
+                if (DzikirActivity.class.getName().equals(a.cn.getClassName())) {
+                    sub = dzikirPagi() ? "PAGI" : "PETANG";
+                }
                 if (QuranActivity.class.getName().equals(a.cn.getClassName()) && QuranService.playing) {
                     sub = String.format(Locale.US, "▶ %d : %d", QuranService.surah, QuranService.ayah);
                 }
