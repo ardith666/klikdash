@@ -30,7 +30,7 @@ Launcher ringan untuk headunit mobil NWD. Branch `android-7` mem-port KlikDash k
 - [x] Kartu kecepatan GPS + warna tier + bar vertikal.
 - [x] Renumber slot + menu tekan lama (Ganti/Hapus).
 - [!] Screen-off via broadcast MCU belum terverifikasi; tap uji tidak mematikan layar.
-- [ ] README upstream belum diperbarui untuk fitur branch `android-7`.
+- [x] README: bagian fork K2001N, tabel perbedaan, demo video (user-attachments).
 
 ## Learnings
 - [2026-10-23] Volume headunit asli ada di settings MCU (`mcu_*`), bukan `STREAM_MUSIC`; `input keyevent 24/25` mengubah stream notifikasi.
@@ -38,15 +38,17 @@ Launcher ringan untuk headunit mobil NWD. Branch `android-7` mem-port KlikDash k
 - [2026-10-23] `PASSIVE_PROVIDER` 60 dtk tidak cukup untuk speedometer; perlu `GPS_PROVIDER` 1 dtk.
 - [2026-10-23] Metadata BC03 menempelkan nama artis di judul; `clean(track, artist)` wajib sebelum cache/fetch.
 - [2026-10-23] Prefs slot berada di `/data/user_de/0/id.kokpit/shared_prefs/kokpit.xml`; shell adb uid 0 tapi app tidak punya akses root.
+- [2026-10-23] GitHub README menolak tag `<video>`; upload ke `POST uploads.github.com/user-attachments/assets` lalu tempel URL mentah agar diputar inline.
 
 ## Files
 | File | Purpose | Last Changed |
 |------|---------|--------------|
 | `src/id/kokpit/HomeActivity.java` | Semua UI + logika home, BT, GPS, volume, tile, screen-off | 2026-10-23 |
+| `README.md` / `README.id.md` | Dokumentasi + tabel fork K2001N + demo video | 2026-10-23 |
 | `build.sh` | Build APK (aapt/javac/d8/apksigner) | 2026-10-23 |
 | `knowledge/` | Knowledge base proyek | 2026-10-23 |
 
 ## Next
 - Verifikasi screen-off di perangkat; fallback device-admin `lockNow()` atau jalur root jika broadcast ditolak.
 - Uji threshold warna speed saat berkendara (80/100/120/150).
-- Perbarui README untuk model/branch `android-7` bila fitur ini mau dipublikasikan.
+- Cek tampilan README di GitHub: video demo harus muncul sebagai player inline.

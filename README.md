@@ -35,6 +35,33 @@
   <sub>Community project, not affiliated with NWD.</sub>
 </p>
 
+## Demo
+
+https://github.com/user-attachments/assets/0fcf025c-dae2-4e65-ad56-9a48430e644f
+
+<sub>K2001N, 1024×600: prayer times, GPS speed, BT music, volume popup, and renumbered tiles.</sub>
+
+## Fork: K2001N / Android 7.1.1
+
+> [!IMPORTANT]
+> **This is the `android-7` fork, not upstream.** It targets the **NWD K2001N** (1024×600, Android 7.1.1)
+> and adds features the upstream K2401 build does not have. Upstream remains Android 10 / 1280×720.
+
+| Area | Upstream (K2401) | This fork (K2001N) |
+|---|---|---|
+| Device | K2401 · Android 10 · 1280×720 | **K2001N · Android 7.1.1 · 1024×600** |
+| Home tiles | 11 app tiles + All apps; drag to swap | **GPS speed card takes the first 2 cells; 9 app tiles + All apps renumbered 01–10** |
+| Tile editing | Long-press + drag to swap; release to pick | **Long-press opens `Ganti` / `Hapus`; drag-to-swap removed** |
+| GPS speed | — | **Live km/h at 1 Hz, speed-tier colors, vertical 0–150 bar** |
+| Bluetooth | — | **BT music widget: album art, title/artist, prev/play/next** |
+| Status line | CPU temperature | **CPU temperature + CPU% + RAM** |
+| Volume | — | **Headunit MCU volume (system/BT) with on-screen popup** |
+| Screen off | — | **Experimental MCU protocol broadcast (not verified yet)** |
+| App list | Wallpaper entry visible | **Wallpaper entry hidden** |
+
+Build this branch with `./build.sh` → `build/klikdash.apk`. The Quran, prayer times, and the rest of the core
+launcher are unchanged from upstream.
+
 ## About
 
 A lightweight launcher for the **K2401** Android car headunit (Allwinner sun50iw10, Android 10, 1280×720
@@ -46,6 +73,8 @@ without Gradle. The app's own interface is in Indonesian.
 > a new app, and the data and recitation audio stored in the app's folder would be lost.
 
 ## Features
+
+> The list below describes upstream. This fork's additions and replacements are listed in the table above.
 
 **Home**
 - A large clock, the day and date in Indonesian, and a 24-hour ruler with prayer-time markers.
@@ -79,11 +108,13 @@ without Gradle. The app's own interface is in Indonesian.
 
 ## Supported devices
 
-KlikDash needs **Android 10 or newer** and is laid out for a **1280×720 landscape** screen. The
-headunit-specific parts (default launcher, sleep/wake, Zlink, ksmd) target NWD firmware.
+Upstream KlikDash needs **Android 10 or newer** and is laid out for a **1280×720 landscape** screen. This
+`android-7` fork is the exception: it targets the **NWD K2001N** (1024×600, Android 7.1.1). The headunit-specific
+parts (default launcher, sleep/wake, Zlink, ksmd) target NWD firmware.
 
 | Device | Screen | Android | Status |
 |---|---|---|---|
+| **NWD K2001N (`android-7` fork)** | **1024×600** | **7.1.1** | ✅ tested on a real device |
 | NWD K2401 (Allwinner sun50iw10) | 1280×720 | 10 | ✅ tested on a real device |
 | Other headunits with NWD firmware | 1280×720 | 10+ | ⚠️ should work, not tested |
 | Other Android headunits (FYT, MTK, Rockchip, …) | 1280×720 | 10+ | ⚠️ launcher, prayer times and Quran should work; NWD-specific tweaks do not apply |
@@ -115,7 +146,7 @@ klikdash/
 ├── build.sh                  build + install on the headunit
 ├── klikdash.keystore         APK signing key (do not lose it, see Notes)
 ├── src/id/kokpit/
-│   ├── HomeActivity.java     launcher: tiles, clock, prayer times, temperature, drag & drop
+│   ├── HomeActivity.java     launcher: tiles, clock, prayer times, temperature, GPS speed, volume
 │   ├── PrayerTimes.java      prayer-time calculation (praytimes.org algorithm)
 │   ├── QuranActivity.java    mushaf view + player
 │   ├── QuranService.java     background recitation player

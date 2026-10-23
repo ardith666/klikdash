@@ -35,6 +35,33 @@
   <sub>Proyek komunitas, tidak berafiliasi dengan NWD.</sub>
 </p>
 
+## Demo
+
+https://github.com/user-attachments/assets/0fcf025c-dae2-4e65-ad56-9a48430e644f
+
+<sub>K2001N, 1024×600: jadwal sholat, kecepatan GPS, BT music, popup volume, dan nomor ubin baru.</sub>
+
+## Fork: K2001N / Android 7.1.1
+
+> [!IMPORTANT]
+> **Ini fork `android-7`, bukan upstream.** Targetnya **NWD K2001N** (1024×600, Android 7.1.1) dengan fitur
+> yang tidak ada di upstream K2401. Upstream tetap Android 10 / 1280×720.
+
+| Area | Upstream (K2401) | Fork ini (K2001N) |
+|---|---|---|
+| Perangkat | K2401 · Android 10 · 1280×720 | **K2001N · Android 7.1.1 · 1024×600** |
+| Ubin home | 11 ubin aplikasi + Semua aplikasi; geser untuk tukar | **Kartu kecepatan GPS memakai 2 sel pertama; 9 ubin aplikasi + Semua aplikasi bernomor 01–10** |
+| Edit ubin | Tekan lama + geser untuk tukar; lepas untuk pilih | **Tekan lama membuka `Ganti` / `Hapus`; drag-to-swap dihapus** |
+| Kecepatan GPS | — | **Km/jam real-time 1 Hz, warna tier, bar vertikal 0–150** |
+| Bluetooth | — | **Widget BT music: sampul, judul/artis, prev/play/next** |
+| Baris status | Suhu CPU | **Suhu CPU + CPU% + RAM** |
+| Volume | — | **Volume MCU headunit (system/BT) + popup di layar** |
+| Screen off | — | **Broadcast protokol MCU eksperimental (belum terverifikasi)** |
+| Daftar aplikasi | Ikon wallpaper terlihat | **Ikon wallpaper disembunyikan** |
+
+Build branch ini dengan `./build.sh` → `build/klikdash.apk`. Al-Qur'an, jadwal sholat, dan inti launcher
+lainnya sama dengan upstream.
+
 ## Tentang
 
 Launcher ringan untuk headunit Android mobil **K2401** (Allwinner sun50iw10, Android 10, layar 1280×720).
@@ -45,6 +72,8 @@ panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa libra
 > baru, sehingga data dan audio murattal di folder aplikasi ikut hilang.
 
 ## Fitur
+
+> Daftar di bawah menjelaskan upstream. Tambahan dan perubahan fork ini ada di tabel di atas.
 
 **Home**
 - Jam besar, hari dan tanggal dalam bahasa Indonesia, serta penggaris 24 jam dengan penanda waktu sholat.
@@ -78,11 +107,13 @@ panel instrumen (~0–1% CPU, ~30 MB RAM). Ditulis dengan Java murni tanpa libra
 
 ## Perangkat yang didukung
 
-KlikDash butuh **Android 10 atau lebih baru** dan tata letaknya dibuat untuk layar **1280×720 landscape**.
-Bagian yang khusus headunit (launcher default, tidur/bangun, Zlink, ksmd) ditujukan untuk firmware NWD.
+KlikDash upstream butuh **Android 10 atau lebih baru** dan tata letaknya dibuat untuk layar **1280×720 landscape**.
+Fork `android-7` ini pengecualian: targetnya **NWD K2001N** (1024×600, Android 7.1.1). Bagian yang khusus
+headunit (launcher default, tidur/bangun, Zlink, ksmd) ditujukan untuk firmware NWD.
 
 | Perangkat | Layar | Android | Status |
 |---|---|---|---|
+| **NWD K2001N (fork `android-7`)** | **1024×600** | **7.1.1** | ✅ diuji di perangkat asli |
 | NWD K2401 (Allwinner sun50iw10) | 1280×720 | 10 | ✅ diuji di perangkat asli |
 | Headunit lain dengan firmware NWD | 1280×720 | 10+ | ⚠️ seharusnya jalan, belum diuji |
 | Headunit Android lain (FYT, MTK, Rockchip, …) | 1280×720 | 10+ | ⚠️ launcher, jadwal sholat, dan Al-Qur'an seharusnya jalan; penyetelan khusus NWD tidak berlaku |
@@ -114,7 +145,7 @@ klikdash/
 ├── build.sh                  build + pasang ke headunit
 ├── klikdash.keystore         kunci tanda tangan APK (jangan hilang, lihat Catatan)
 ├── src/id/kokpit/
-│   ├── HomeActivity.java     launcher: ubin, jam, sholat, suhu, drag & drop
+│   ├── HomeActivity.java     launcher: ubin, jam, sholat, suhu, kecepatan GPS, volume
 │   ├── PrayerTimes.java      perhitungan jadwal sholat (algoritma praytimes.org)
 │   ├── QuranActivity.java    tampilan mushaf + pemutar
 │   ├── QuranService.java     pemutar murattal di latar
