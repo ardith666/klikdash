@@ -199,6 +199,14 @@ public class SettingsActivity extends Activity {
                     show(TAB_LAUNCHER, true);
                 })));
 
+        boolean bt = prefs.getBoolean("btWidget", false);
+        list.addView(row("WIDGET BT MUSIC",
+                "Tampilkan widget BT Music horizontal di atas grid. Khusus firmware NWD; kontrol lewat broadcast vendor. Default nonaktif.",
+                key(bt ? "AKTIF" : "NONAKTIF", bt, () -> {
+                    prefs.edit().putBoolean("btWidget", !bt).apply();
+                    show(TAB_LAUNCHER, true);
+                })));
+
         int off = prefs.getInt("hijriOffset", 0);
         Key[] shift = new Key[5];
         for (int i = 0; i < 5; i++) {

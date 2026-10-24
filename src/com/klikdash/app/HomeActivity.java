@@ -53,6 +53,31 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.view.MotionEvent;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.security.MessageDigest;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.security.MessageDigest;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -269,9 +294,17 @@ public class HomeActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        if (prefs.getBoolean("speedometer", false) != speedGaugeEnabled) {
+        if (prefs.getBoolean("speedometer", false) != speedGaugeEnabled || prefs.getBoolean("btWidget", false) != (btWidget != null)) {
             recreate();
             return;
+        }
+        if (prefs.getBoolean("btWidget", false) && btRx != null) {
+            try {
+                IntentFilter bf = new IntentFilter("com.nwd.btmusic.playinfo.changed");
+                bf.addAction("com.bt.ACTION_BT_MUSIC_PLAY");
+                bf.addAction("com.bt.ACTION_BT_MUSIC_PAUSE");
+                registerReceiver(btRx, bf);
+            } catch (Exception ignored) {}
         }
         QuranService.listeners.add(onQuran);
         loadSlots(); // bisa diatur ulang dari Pengaturan
@@ -394,6 +427,9 @@ public class HomeActivity extends Activity {
         prayerView.stopTicking();
         temp.removeCallbacks(tempTick);
         QuranService.listeners.remove(onQuran);
+        if (btRx != null) {
+            try { unregisterReceiver(btRx); } catch (Exception ignored) {}
+        }
         super.onPause();
     }
 
@@ -495,6 +531,21 @@ public class HomeActivity extends Activity {
         tiles[a].invalidate();
         tiles[b].invalidate();
     }
+
+    BtWidget btWidget;
+    final BroadcastReceiver btRx = new BroadcastReceiver() {
+        @Override public void onReceive(Context c, Intent i) {
+            if (!prefs.getBoolean("btWidget", false) || btWidget == null) return;
+            String a = i.getAction();
+            if ("com.nwd.btmusic.playinfo.changed".equals(a)) {
+                btWidget.meta(i.getStringExtra("track"), i.getStringExtra("artist"));
+            } else if ("com.bt.ACTION_BT_MUSIC_PLAY".equals(a)) {
+                btWidget.play(true);
+            } else if ("com.bt.ACTION_BT_MUSIC_PAUSE".equals(a)) {
+                btWidget.play(false);
+            }
+        }
+    };
 
     void loadApps() {
         apps.clear();
@@ -789,6 +840,12 @@ public class HomeActivity extends Activity {
         left.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
         prayerView = new PrayerView();
         left.addView(prayerView, new LinearLayout.LayoutParams(MATCH, px(104)));
+        if (prefs.getBoolean("btWidget", false)) {
+            btWidget = new BtWidget(true);
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(MATCH, px(92));
+            blp.topMargin = px(12);
+            left.addView(btWidget, blp);
+        }
         gauge = new Gauge();
         LinearLayout.LayoutParams gl = new LinearLayout.LayoutParams(MATCH, px(56));
         gl.topMargin = px(18);
@@ -934,6 +991,314 @@ public class HomeActivity extends Activity {
         t.setSingleLine(true);
         return t;
     }
+
+    class BtWidget extends View {
+        final Paint panel = new Paint();
+        final Paint frame = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint disc = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint knob = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final TextPaint title = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        final TextPaint sub = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        final TextPaint ini = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        final Rect rPrev = new Rect(), rPlay = new Rect(), rNext = new Rect();
+        final Rect src = new Rect(), dst = new Rect();
+        final int[] palette = {0xFF3A4C44, 0xFF4C3C2E, 0xFF334757, 0xFF4C3542, 0xFF414A32};
+        String track = "", artist = "";
+        Bitmap art;
+        boolean playing;
+        int held, seq;
+        boolean horizontal;
+
+        BtWidget() {
+            this(false);
+        }
+
+        BtWidget(boolean horizontal) {
+            super(HomeActivity.this);
+            this.horizontal = horizontal;
+            frame.setStyle(Paint.Style.STROKE);
+            frame.setStrokeWidth(px(1));
+            frame.setColor(LINE);
+            title.setTypeface(fHeavy);
+            title.setTextSize(sp(19));
+            title.setFakeBoldText(true);
+            title.setColor(AMBER);
+            title.setTextAlign(Paint.Align.CENTER);
+            sub.setTypeface(fMonoBold);
+            sub.setTextSize(sp(12));
+            sub.setFakeBoldText(true);
+            sub.setLetterSpacing(0.08f);
+            sub.setColor(AMBER);
+            sub.setTextAlign(Paint.Align.CENTER);
+            ini.setTypeface(fHeavy);
+            ini.setTextSize(sp(44));
+            ini.setTextAlign(Paint.Align.CENTER);
+            track = prefs.getString("btTrack", "");
+            artist = prefs.getString("btArtist", "");
+            track = clean(track, artist);
+            playing = prefs.getBoolean("btPlaying", false);
+            if (!track.isEmpty() || !artist.isEmpty()) load(++seq);
+        }
+
+        String clean(String t, String a) {
+            if (t == null) return "";
+            t = t.trim();
+            a = a == null ? "" : a.trim();
+            if (!a.isEmpty() && t.toLowerCase().endsWith(a.toLowerCase()))
+                t = t.substring(0, t.length() - a.length()).trim();
+            return t;
+        }
+
+        void meta(String t, String a) {
+            artist = a == null ? "" : a.trim();
+            track = clean(t, artist);
+            art = null;
+            seq++;
+            prefs.edit().putString("btTrack", track).putString("btArtist", artist).apply();
+            invalidate();
+            load(seq);
+        }
+
+        void play(boolean p) {
+            if (playing == p) return;
+            playing = p;
+            prefs.edit().putBoolean("btPlaying", p).apply();
+            invalidate();
+        }
+
+        int at(float x, float y) {
+            if (rPrev.contains((int) x, (int) y)) return 2;
+            if (rPlay.contains((int) x, (int) y)) return 1;
+            if (rNext.contains((int) x, (int) y)) return 3;
+            return 0;
+        }
+
+        @Override public boolean onTouchEvent(MotionEvent e) {
+            int hit = at(e.getX(), e.getY());
+            if (e.getAction() == MotionEvent.ACTION_DOWN) {
+                held = hit;
+                invalidate();
+                return hit != 0;
+            }
+            if (e.getAction() == MotionEvent.ACTION_UP) {
+                int was = held;
+                held = 0;
+                invalidate();
+                if (was != 0 && was == hit) {
+                    sendBroadcast(new Intent("com.nwd.ACTION_PLAY_BTMUSIC_CMD").putExtra("extra_command", was));
+                }
+                return true;
+            }
+            if (e.getAction() == MotionEvent.ACTION_CANCEL) {
+                held = 0;
+                invalidate();
+            }
+            return hit != 0;
+        }
+
+        void load(final int want) {
+            final String t = track, a = artist;
+            if (t.isEmpty() && a.isEmpty()) return;
+            new Thread(() -> {
+                Bitmap b = cover(t, a);
+                if (b == null) return;
+                runOnUiThread(() -> {
+                    if (want == seq) {
+                        art = b;
+                        invalidate();
+                    }
+                });
+            }, "bt-cover").start();
+        }
+
+        Bitmap cover(String t, String a) {
+            try {
+                File dir = new File(getContext().getFilesDir(), "btart");
+                if (!dir.exists()) dir.mkdirs();
+                File f = new File(dir, hash(a + "\n" + t) + ".jpg");
+                if (f.exists()) {
+                    Bitmap b = BitmapFactory.decodeFile(f.getPath());
+                    if (b != null) return b;
+                }
+                String q = URLEncoder.encode((a + " " + t).trim(), "UTF-8");
+                byte[] body = http("https://itunes.apple.com/search?term=" + q + "&entity=song&limit=1");
+                JSONArray r = new JSONObject(new String(body, "UTF-8")).optJSONArray("results");
+                if (r == null || r.length() == 0) return null;
+                String u = r.getJSONObject(0).optString("artworkUrl100", "");
+                if (u.isEmpty()) return null;
+                byte[] img = http(u.replace("100x100", "300x300"));
+                Bitmap b = BitmapFactory.decodeByteArray(img, 0, img.length);
+                if (b != null) {
+                    try (FileOutputStream o = new FileOutputStream(f)) {
+                        o.write(img);
+                    }
+                }
+                return b;
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        byte[] http(String u) throws Exception {
+            HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
+            c.setConnectTimeout(6000);
+            c.setReadTimeout(9000);
+            c.setRequestProperty("User-Agent", "KlikDash/1.0");
+            try {
+                InputStream in = c.getInputStream();
+                ByteArrayOutputStream o = new ByteArrayOutputStream();
+                byte[] b = new byte[8192];
+                int n;
+                while ((n = in.read(b)) > 0) o.write(b, 0, n);
+                in.close();
+                return o.toByteArray();
+            } finally {
+                c.disconnect();
+            }
+        }
+
+        String hash(String s) throws Exception {
+            byte[] d = MessageDigest.getInstance("SHA-1").digest(s.getBytes("UTF-8"));
+            StringBuilder b = new StringBuilder();
+            for (byte x : d) b.append(Integer.toHexString((x & 0xff) + 0x100).substring(1));
+            return b.toString();
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            int w = getWidth(), h = getHeight(), pad = px(8);
+            panel.setColor(PANEL);
+            c.drawRect(0, 0, w, h, panel);
+            float st = frame.getStrokeWidth() / 2f;
+            c.drawRect(st, st, w - st, h - st, frame);
+
+            if (horizontal) {
+                int cs = Math.min(h - pad * 2, px(76));
+                int cx = pad, cy = (h - cs) / 2;
+                dst.set(cx, cy, cx + cs, cy + cs);
+                if (art != null) {
+                    int iw = art.getWidth(), ih = art.getHeight(), side = Math.min(iw, ih);
+                    src.set((iw - side) / 2, (ih - side) / 2, (iw + side) / 2, (ih + side) / 2);
+                    c.drawBitmap(art, src, dst, null);
+                } else {
+                    int col = track.isEmpty() ? PANEL : palette[(track.hashCode() & 0x7fffffff) % palette.length];
+                    disc.setStyle(Paint.Style.FILL);
+                    disc.setColor(col);
+                    c.drawRect(dst, disc);
+                    disc.setStyle(Paint.Style.STROKE);
+                    disc.setStrokeWidth(px(1));
+                    disc.setColor(track.isEmpty() ? LINE : DIM);
+                    c.drawRect(dst, disc);
+                    ini.setColor(track.isEmpty() ? FAINT : TEXT);
+                    Paint.FontMetrics fm = ini.getFontMetrics();
+                    String ch = track.isEmpty() ? "BT" : track.substring(0, 1).toUpperCase(ID);
+                    c.drawText(ch, cx + cs / 2f, cy + cs / 2f - (fm.ascent + fm.descent) / 2f, ini);
+                }
+
+                float tx = cx + cs + px(14);
+                float ty = cy + px(20);
+                CharSequence t = TextUtils.ellipsize(track.isEmpty() ? "BT MUSIC" : track, title, w - tx - px(150), TextUtils.TruncateAt.END);
+                title.setColor(track.isEmpty() ? FAINT : AMBER);
+                c.drawText(t, 0, t.length(), tx, ty, title);
+                String a = artist.isEmpty() ? (track.isEmpty() ? "HUBUNGKAN PONSEL" : "") : artist;
+                CharSequence as = TextUtils.ellipsize(a, sub, w - tx - px(150), TextUtils.TruncateAt.END);
+                sub.setColor(artist.isEmpty() ? DIM : AMBER);
+                c.drawText(as, 0, as.length(), tx, ty + px(18), sub);
+
+                int bw = px(64), bh = px(44);
+                int by = (h - bh) / 2;
+                int gap = px(6);
+                int x = w - pad - (bw * 3 + gap * 2);
+                rPrev.set(x, by, x + bw, by + bh);
+                x += bw + gap;
+                rPlay.set(x, by, x + bw, by + bh);
+                x += bw + gap;
+                rNext.set(x, by, x + bw, by + bh);
+                key(c, rPrev, 2, held == 2);
+                key(c, rPlay, playing ? 3 : 1, held == 1);
+                key(c, rNext, 4, held == 3);
+                return;
+            }
+
+            int cs = Math.min(w - pad * 2, px(128));
+            int cx = (w - cs) / 2, cy = pad;
+            dst.set(cx, cy, cx + cs, cy + cs);
+            if (art != null) {
+                int iw = art.getWidth(), ih = art.getHeight(), side = Math.min(iw, ih);
+                src.set((iw - side) / 2, (ih - side) / 2, (iw + side) / 2, (ih + side) / 2);
+                c.drawBitmap(art, src, dst, null);
+            } else {
+                int col = track.isEmpty() ? PANEL : palette[(track.hashCode() & 0x7fffffff) % palette.length];
+                disc.setStyle(Paint.Style.FILL);
+                disc.setColor(col);
+                c.drawRect(dst, disc);
+                disc.setStyle(Paint.Style.STROKE);
+                disc.setStrokeWidth(px(1));
+                disc.setColor(track.isEmpty() ? LINE : DIM);
+                c.drawRect(dst, disc);
+                ini.setColor(track.isEmpty() ? FAINT : TEXT);
+                Paint.FontMetrics fm = ini.getFontMetrics();
+                String ch = track.isEmpty() ? "BT" : track.substring(0, 1).toUpperCase(ID);
+                c.drawText(ch, cx + cs / 2f, cy + cs / 2f - (fm.ascent + fm.descent) / 2f, ini);
+            }
+
+            float ty = cy + cs + px(28);
+            CharSequence t = TextUtils.ellipsize(track.isEmpty() ? "BT MUSIC" : track, title, w - pad * 2, TextUtils.TruncateAt.END);
+            title.setColor(track.isEmpty() ? FAINT : AMBER);
+            c.drawText(t, 0, t.length(), w / 2f, ty, title);
+            String a = artist.isEmpty() ? (track.isEmpty() ? "HUBUNGKAN PONSEL" : "") : artist;
+            CharSequence as = TextUtils.ellipsize(a, sub, w - pad * 2, TextUtils.TruncateAt.END);
+            sub.setColor(artist.isEmpty() ? DIM : AMBER);
+            c.drawText(as, 0, as.length(), w / 2f, ty + px(20), sub);
+
+            int gap = px(6), bh = px(60);
+            int bw = (w - pad * 2 - gap * 2) / 3;
+            int by = h - pad - bh;
+            rPrev.set(pad, by, pad + bw, by + bh);
+            rPlay.set(pad + bw + gap, by, pad + bw * 2 + gap, by + bh);
+            rNext.set(pad + (bw + gap) * 2, by, w - pad, by + bh);
+            key(c, rPrev, 2, held == 2);
+            key(c, rPlay, playing ? 3 : 1, held == 1);
+            key(c, rNext, 4, held == 3);
+        }
+
+        void key(Canvas c, Rect r, int kind, boolean on) {
+            knob.setStyle(Paint.Style.FILL);
+            knob.setColor(on ? AMBER : PANEL);
+            c.drawRect(r, knob);
+            frame.setColor(LINE);
+            c.drawRect(r, frame);
+            knob.setColor(on ? INK : (track.isEmpty() ? FAINT : TEXT));
+            float x = r.exactCenterX(), y = r.exactCenterY();
+            float a = px(8), b = px(10);
+            Path p = new Path();
+            if (kind == 1) {
+                p.moveTo(x - a * .6f, y - b);
+                p.lineTo(x + a, y);
+                p.lineTo(x - a * .6f, y + b);
+                p.close();
+                c.drawPath(p, knob);
+            } else if (kind == 2) {
+                p.moveTo(x + a, y - b);
+                p.lineTo(x - a * .6f, y);
+                p.lineTo(x + a, y + b);
+                p.close();
+                c.drawPath(p, knob);
+                c.drawRect(x + a, y - b, x + a + px(2), y + b, knob);
+            } else if (kind == 3) {
+                c.drawRect(x - px(9), y - b, x - px(3), y + b, knob);
+                c.drawRect(x + px(3), y - b, x + px(9), y + b, knob);
+            } else {
+                p.moveTo(x - a, y - b);
+                p.lineTo(x + a * .6f, y);
+                p.lineTo(x - a, y + b);
+                p.close();
+                c.drawPath(p, knob);
+                c.drawRect(x + a * .6f, y - b, x + a * .6f + px(2), y + b, knob);
+            }
+        }
+    }
+
+
 
     class SpeedGauge extends View {
         final Paint panel = new Paint();
