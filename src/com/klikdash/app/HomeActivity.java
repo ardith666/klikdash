@@ -53,6 +53,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import android.os.Handler;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.view.MotionEvent;
@@ -294,11 +295,11 @@ public class HomeActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        if (prefs.getBoolean("speedometer", false) != speedGaugeEnabled || prefs.getBoolean("btWidget", false) != (btWidget != null)) {
+        if (prefs.getBoolean("speedometer", false) != speedGaugeEnabled) {
             recreate();
             return;
         }
-        if (prefs.getBoolean("btWidget", false) && btRx != null) {
+        if (btWidgetActive() && btRx != null) {
             try {
                 IntentFilter bf = new IntentFilter("com.nwd.btmusic.playinfo.changed");
                 bf.addAction("com.bt.ACTION_BT_MUSIC_PLAY");
@@ -311,8 +312,7 @@ public class HomeActivity extends Activity {
         onQuran.run();
         updateTime();
         prayerView.startTicking();
-        temp.removeCallbacks(tempTick);
-        tempTick.run();
+        // temp hidden
         refreshDefaultHome();
         startSpeed();
     }
@@ -425,7 +425,7 @@ public class HomeActivity extends Activity {
     @Override protected void onPause() {
         stopSpeed();
         prayerView.stopTicking();
-        temp.removeCallbacks(tempTick);
+        // temp hidden
         QuranService.listeners.remove(onQuran);
         if (btRx != null) {
             try { unregisterReceiver(btRx); } catch (Exception ignored) {}
@@ -533,9 +533,12 @@ public class HomeActivity extends Activity {
     }
 
     BtWidget btWidget;
+    boolean btWidgetActive() { return prefs != null && prefs.getBoolean("btWidget", false); }
+    boolean isBtSlot(int idx) { return btWidgetActive() && idx == 1; } // use slot 1 as holder, will span
+    boolean inBtArea(int idx) { return btWidgetActive() && (idx == 0 || idx == 1 || idx == 3 || idx == 4); }
     final BroadcastReceiver btRx = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
-            if (!prefs.getBoolean("btWidget", false) || btWidget == null) return;
+            if (!btWidgetActive() || btWidget == null) return;
             String a = i.getAction();
             if ("com.nwd.btmusic.playinfo.changed".equals(a)) {
                 btWidget.meta(i.getStringExtra("track"), i.getStringExtra("artist"));
@@ -716,6 +719,62 @@ public class HomeActivity extends Activity {
 
     // ---------------------------------------------------------------- layout
 
+    String readCpuTemp() {
+        try {
+            String[] p = {"/sys/class/thermal/thermal_zone0/temp", "/sys/devices/virtual/thermal/thermal_zone0/temp", "/sys/class/thermal/thermal_zone1/temp"};
+            for (String s : p) {
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(s));
+                String v = br.readLine().trim();
+                br.close();
+                if (!v.isEmpty()) {
+                    long t = Long.parseLong(v);
+                    if (t > 1000) t = t / 1000;
+                    return String.valueOf(t);
+                }
+            }
+        } catch (Exception ignored) {}
+        return "--";
+    }
+
+    int readCpuPercent() {
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader("/proc/stat"));
+            String l1 = br.readLine();
+            br.close();
+            String[] a1 = l1.split("\\s+");
+            long u1 = Long.parseLong(a1[1])+Long.parseLong(a1[2])+Long.parseLong(a1[3]), i1 = Long.parseLong(a1[4]), s1 = Long.parseLong(a1[5]), w1 = Long.parseLong(a1[6]);
+            Thread.sleep(250);
+            br = new java.io.BufferedReader(new java.io.FileReader("/proc/stat"));
+            String l2 = br.readLine();
+            br.close();
+            String[] a2 = l2.split("\\s+");
+            long u2 = Long.parseLong(a2[1])+Long.parseLong(a2[2])+Long.parseLong(a2[3]), i2 = Long.parseLong(a2[4]), s2 = Long.parseLong(a2[5]), w2 = Long.parseLong(a2[6]);
+            long du=u2-u1, di=i2-i1, ds=s2-s1, dw=w2-w1;
+            long total=du+di+ds+dw; if(total<=0)return 0;
+            return Math.round(du*100f/total);
+        } catch (Exception ignored) {}
+        return 0;
+    }
+
+    int readMemPercent() {
+        try {
+            android.app.ActivityManager am = (android.app.ActivityManager)getSystemService(Context.ACTIVITY_SERVICE);
+            android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
+            am.getMemoryInfo(mi);
+            long total = mi.totalMem;
+            long used = total - mi.availMem;
+            if (total<=0)return 0;
+            return Math.round(used*100f/total);
+        } catch (Exception ignored) {}
+        return 0;
+    }
+
+    final Runnable memUpdater = new Runnable() {
+        @Override public void run() {
+            // handled by Handler above
+        }
+    };
+
     void measureScreen() {
         android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
         wDp = dm.widthPixels / dm.density;
@@ -757,14 +816,35 @@ public class HomeActivity extends Activity {
 
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.HORIZONTAL);
-        // Model dari sistem (mis. "K2401/K2401P/k2401M" → K2401), bukan ditulis mati.
-        String model = android.os.Build.MODEL.split("[/ ]")[0].toUpperCase(Locale.US);
-        TextView tag = text("KLIKDASH  ·  " + model, fMono, 12, DIM);
+        TextView tag = text("ARDITH666", fMonoBold, 12, AMBER);
         tag.setLetterSpacing(0.25f);
-        top.addView(tag, new LinearLayout.LayoutParams(0, WRAP, 1f));
-        temp = text("", fMonoBold, 12, DIM);
-        temp.setLetterSpacing(0.15f);
-        top.addView(temp);
+        top.addView(tag, new LinearLayout.LayoutParams(WRAP, WRAP));
+        TextView mem = text("MEM", fMonoBold, 11, AMBER);
+        mem.setTag("mem");
+        mem.setLetterSpacing(0.15f);
+        LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(0, WRAP, 1f);
+        mlp.leftMargin = px(16);
+        top.addView(mem, mlp);
+        TextView cpu = text("CPU", fMonoBold, 11, AMBER);
+        cpu.setLetterSpacing(0.15f);
+        cpu.setPadding(px(10),0,0,0);
+        top.addView(cpu);
+        TextView tmp = text(readCpuTemp()+"'C", fMonoBold, 11, AMBER);
+        tmp.setLetterSpacing(0.15f);
+        tmp.setPadding(px(10),0,0,0);
+        top.addView(tmp);
+        final Handler hmem = new Handler(getMainLooper());
+        Runnable upd = new Runnable() {
+            @Override public void run() {
+                try {
+                    mem.setText("MEM" + readMemPercent() + "%");
+                    cpu.setText("CPU" + readCpuPercent() + "%");
+                    tmp.setText(readCpuTemp()+"'C");
+                } catch (Exception ignored) {}
+                hmem.postDelayed(this, 3000);
+            }
+        };
+        hmem.post(upd);
         // Pengaturan KlikDash (tampilan, Hemat Daya, asisten AI). Kotak sentuh 48dp walau ikonnya kecil.
         TextView gear = text("⚙", fMonoBold, 18, DIM);
         gear.setGravity(Gravity.CENTER);
@@ -840,12 +920,7 @@ public class HomeActivity extends Activity {
         left.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
         prayerView = new PrayerView();
         left.addView(prayerView, new LinearLayout.LayoutParams(MATCH, px(104)));
-        if (prefs.getBoolean("btWidget", false)) {
-            btWidget = new BtWidget(true);
-            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(MATCH, px(92));
-            blp.topMargin = px(12);
-            left.addView(btWidget, blp);
-        }
+        // bt widget moved to grid slots when enabled
         gauge = new Gauge();
         LinearLayout.LayoutParams gl = new LinearLayout.LayoutParams(MATCH, px(56));
         gl.topMargin = px(18);
@@ -1362,8 +1437,8 @@ public class HomeActivity extends Activity {
 
     void drawIcon(Canvas c, Drawable d, int left, int top, int size, boolean color) {
         d.setBounds(left, top, left + size, top + size);
-        d.setColorFilter(color ? null : mono);
-        d.setAlpha(color ? 255 : 225);
+        d.setColorFilter(null);
+        d.setAlpha(255);
         d.draw(c);
     }
 
@@ -1417,11 +1492,12 @@ public class HomeActivity extends Activity {
             small.setLetterSpacing(0.15f);
             setClickable(true);
             setOnClickListener(v -> {
+                if (btWidgetActive() && isBtSlot(idx)) return;
                 if (idx == SLOTS) { openDrawer(-1); return; }
                 App a = appFor(idx);
                 if (a == null) openDrawer(idx); else launch(a.cn);
             });
-            if (idx < SLOTS) {
+            if (idx < SLOTS && !(btWidgetActive() && isBtSlot(idx))) {
                 // Tekan lama: geser ke ubin lain = tukar posisi; lepas di tempat = pilih aplikasi.
                 setOnLongClickListener(v -> {
                     v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
@@ -1454,6 +1530,10 @@ public class HomeActivity extends Activity {
                     }
                     return true;
                 });
+            } else             if (btWidgetActive() && inBtArea(idx)) {
+                setLongClickable(false);
+                setOnDragListener(null);
+                setClickable(false);
             }
         }
 
@@ -1477,6 +1557,23 @@ public class HomeActivity extends Activity {
         }
 
         @Override protected void onDraw(Canvas c) {
+            if (btWidgetActive() && inBtArea(idx)) {
+                if (idx != 1) {
+                    // don't draw duplicate, just empty panel
+                    drawFrame(c);
+                    drawDragState(c);
+                    return;
+                }
+                if (btWidget == null) btWidget = new BtWidget(true);
+                drawFrame(c);
+                int w = getWidth(), h = getHeight();
+                // span: extend width to cover adjacent slots conceptually? tile width fixed by grid; draw across by scaling
+                btWidget.measure(MeasureSpec.makeMeasureSpec(w * 2 + px(12), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY));
+                btWidget.layout(0, 0, w * 2 + px(12), h);
+                btWidget.draw(c);
+                drawDragState(c);
+                return;
+            }
             drawFrame(c);
             int w = getWidth(), h = getHeight();
             float k = Math.max(0.55f, Math.min(1.25f, Math.min(w / (float) px(180), h / (float) px(190))));
@@ -1485,10 +1582,16 @@ public class HomeActivity extends Activity {
             boolean all = idx == SLOTS;
             App a = all ? null : appFor(idx);
 
-            small.setColor(down ? INK : (idx < cols ? AMBER : DIM));
-            c.drawText(String.format(Locale.US, "%02d", idx + 1), m, m + small.getTextSize(), small);
+            if (!(btWidgetActive() && isBtSlot(idx))) {
+            if (!(btWidgetActive() && inBtArea(idx))) {
+                small.setColor(down ? INK : (idx < cols ? AMBER : DIM));
+                c.drawText(String.format(Locale.US, "%02d", idx + 1), m, m + small.getTextSize(), small);
+            } else {
+                // hide number
+            }
+            }
 
-            int icon = Math.round(px(60) * k);
+            int icon = Math.round(px(60) * k * (btWidgetActive() && isBtSlot(idx) ? 0 : 1));
             String name, sub = null;
             if (all) {
                 int cell = Math.round(px(14) * k), g = Math.round(px(7) * k), x0 = w - m - (cell * 3 + g * 2);
@@ -1501,8 +1604,13 @@ public class HomeActivity extends Activity {
                 }
                 name = "SEMUA";
                 sub = "APLIKASI  →";
+            } else             if (btWidgetActive() && inBtArea(idx) && idx != 1) {
+                return;
+            } else if (btWidgetActive() && isBtSlot(idx)) {
+                return;
             } else if (a != null) {
-                drawIcon(c, a.icon, w - m - icon, m, icon, down);
+                int ic = Math.round(px(84) * k);
+                drawIcon(c, a.icon, w - m - ic, m, ic, true);
                 name = slotLabel[idx] != null ? slotLabel[idx] : a.label.toUpperCase(ID);
                 if (DzikirActivity.class.getName().equals(a.cn.getClassName())) {
                     sub = dzikirPagi() ? "PAGI" : "PETANG";
