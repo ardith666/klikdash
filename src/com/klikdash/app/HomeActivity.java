@@ -819,21 +819,21 @@ public class HomeActivity extends Activity {
         TextView tag = text("ARDITH666", fMonoBold, 12, AMBER);
         tag.setLetterSpacing(0.25f);
         top.addView(tag, new LinearLayout.LayoutParams(WRAP, WRAP));
-        TextView memI = text("💾", fMono, 13, DIM);
+        TextView memI = text("M", fMonoBold, 12, DIM);
         LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(WRAP, WRAP);
-        mlp.leftMargin = px(16);
+        mlp.leftMargin = px(18);
         top.addView(memI, mlp);
         TextView memv = text(readMemPercent()+"%", fMono, 11, DIM);
-        memv.setPadding(px(4),0,0,0);
+        memv.setPadding(px(2),0,0,0);
         top.addView(memv);
-        TextView cpuI = text("⚡", fMono, 13, DIM);
-        cpuI.setPadding(px(10),0,0,0);
+        TextView cpuI = text("C", fMonoBold, 12, DIM);
+        cpuI.setPadding(px(12),0,0,0);
         top.addView(cpuI);
         TextView cpuv = text(readCpuPercent()+"%", fMono, 11, DIM);
-        cpuv.setPadding(px(4),0,0,0);
+        cpuv.setPadding(px(2),0,0,0);
         top.addView(cpuv);
-        TextView tmpv = text(readCpuTemp(), fMonoBold, 11, 0xFF22C55E);
-        tmpv.setPadding(px(10),0,0,0);
+        TextView tmpv = text(readCpuTemp(), fMonoBold, 12, 0xFF22C55E);
+        tmpv.setPadding(px(12),0,0,0);
         final Handler hmem = new Handler(getMainLooper());
         Runnable upd = new Runnable() {
             @Override public void run() {
@@ -1563,15 +1563,20 @@ public class HomeActivity extends Activity {
         @Override protected void onDraw(Canvas c) {
             if (btWidgetActive() && inBtArea(idx)) {
                 if (idx != 0) {
-                    drawFrame(c);
+                    // fill entire tile area as part of big widget without border
+                    if (btWidget == null) btWidget = new BtWidget(true);
+                    int w = getWidth(), h = getHeight();
+                    int ox = 0, oy = 0;
+                    if (idx == 1) { ox = -w - px(12); oy = 0; }
+                    if (idx == 3) { ox = 0; oy = -h - px(12); }
+                    if (idx == 4) { ox = -w - px(12); oy = -h - px(12); }
+                    btWidget.draw(c);
                     drawDragState(c);
                     return;
                 }
                 if (btWidget == null) btWidget = new BtWidget(true);
                 drawFrame(c);
                 int w = getWidth(), h = getHeight();
-                LinearLayout row = (LinearLayout)getParent();
-                // cover 4 tiles roughly
                 btWidget.measure(MeasureSpec.makeMeasureSpec(w * 2 + px(12), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(h * 2 + px(12), MeasureSpec.EXACTLY));
                 btWidget.layout(0, 0, w * 2 + px(12), h * 2 + px(12));
                 btWidget.draw(c);
