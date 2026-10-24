@@ -819,27 +819,31 @@ public class HomeActivity extends Activity {
         TextView tag = text("ARDITH666", fMonoBold, 12, AMBER);
         tag.setLetterSpacing(0.25f);
         top.addView(tag, new LinearLayout.LayoutParams(WRAP, WRAP));
-        TextView mem = text("MEM", fMonoBold, 11, AMBER);
-        mem.setTag("mem");
-        mem.setLetterSpacing(0.15f);
-        LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(0, WRAP, 1f);
+        TextView memI = text("💾", fMono, 13, DIM);
+        LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(WRAP, WRAP);
         mlp.leftMargin = px(16);
-        top.addView(mem, mlp);
-        TextView cpu = text("CPU", fMonoBold, 11, AMBER);
-        cpu.setLetterSpacing(0.15f);
-        cpu.setPadding(px(10),0,0,0);
-        top.addView(cpu);
-        TextView tmp = text(readCpuTemp()+"'C", fMonoBold, 11, AMBER);
-        tmp.setLetterSpacing(0.15f);
-        tmp.setPadding(px(10),0,0,0);
-        top.addView(tmp);
+        top.addView(memI, mlp);
+        TextView memv = text(readMemPercent()+"%", fMono, 11, DIM);
+        memv.setPadding(px(4),0,0,0);
+        top.addView(memv);
+        TextView cpuI = text("⚡", fMono, 13, DIM);
+        cpuI.setPadding(px(10),0,0,0);
+        top.addView(cpuI);
+        TextView cpuv = text(readCpuPercent()+"%", fMono, 11, DIM);
+        cpuv.setPadding(px(4),0,0,0);
+        top.addView(cpuv);
+        TextView tmpv = text(readCpuTemp(), fMonoBold, 11, 0xFF22C55E);
+        tmpv.setPadding(px(10),0,0,0);
         final Handler hmem = new Handler(getMainLooper());
         Runnable upd = new Runnable() {
             @Override public void run() {
                 try {
-                    mem.setText("MEM" + readMemPercent() + "%");
-                    cpu.setText("CPU" + readCpuPercent() + "%");
-                    tmp.setText(readCpuTemp()+"'C");
+                    memv.setText(readMemPercent()+"%");
+                    cpuv.setText(readCpuPercent()+"%");
+                    String t = readCpuTemp();
+                    tmpv.setText(t);
+                    int tv = -1; try { tv = Integer.parseInt(t); } catch (Exception ignored){}
+                    tmpv.setTextColor(tv >= 90 ? 0xFFFF3B30 : tv >= 75 ? 0xFFFFB000 : 0xFF22C55E);
                 } catch (Exception ignored) {}
                 hmem.postDelayed(this, 3000);
             }
@@ -1558,8 +1562,7 @@ public class HomeActivity extends Activity {
 
         @Override protected void onDraw(Canvas c) {
             if (btWidgetActive() && inBtArea(idx)) {
-                if (idx != 1) {
-                    // don't draw duplicate, just empty panel
+                if (idx != 0) {
                     drawFrame(c);
                     drawDragState(c);
                     return;
@@ -1567,9 +1570,10 @@ public class HomeActivity extends Activity {
                 if (btWidget == null) btWidget = new BtWidget(true);
                 drawFrame(c);
                 int w = getWidth(), h = getHeight();
-                // span: extend width to cover adjacent slots conceptually? tile width fixed by grid; draw across by scaling
-                btWidget.measure(MeasureSpec.makeMeasureSpec(w * 2 + px(12), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY));
-                btWidget.layout(0, 0, w * 2 + px(12), h);
+                LinearLayout row = (LinearLayout)getParent();
+                // cover 4 tiles roughly
+                btWidget.measure(MeasureSpec.makeMeasureSpec(w * 2 + px(12), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(h * 2 + px(12), MeasureSpec.EXACTLY));
+                btWidget.layout(0, 0, w * 2 + px(12), h * 2 + px(12));
                 btWidget.draw(c);
                 drawDragState(c);
                 return;
